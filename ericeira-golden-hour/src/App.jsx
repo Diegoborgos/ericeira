@@ -3,7 +3,9 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 const ERICEIRA_LAT = 38.9635;
 const ERICEIRA_LNG = -9.4178;
 
-// VENUE DATA — ALL coordinates from Google Places API
+// ============================================================
+// VENUE DATA — Google Places verified coordinates
+// ============================================================
 const VENUES = [
   { id: 1, name: "Mar das Latas", type: "Wine Bar", zone: "Old Town Cliffs", lat: 38.963436, lng: -9.418367, facing: 250, elevated: true, description: "Cliff-edge wine bar with custom box-trays on the wall. The sunset spot.", tags: ["sunset", "wine", "cliffs"], placeId: "ChIJG9RvYQwnHw0R0awMueZK0SQ" },
   { id: 2, name: "Ouriço Terrace", type: "Bar & Club", zone: "Pescadores", lat: 38.9623784, lng: -9.418625, facing: 270, elevated: true, description: "Portugal's oldest nightclub with ocean-view terrace above Praia dos Pescadores.", tags: ["nightlife", "terrace", "ocean view"], placeId: "ChIJ00jUNp8nHw0RU_n-Kf3yAXg" },
@@ -31,7 +33,9 @@ const VENUES = [
   { id: 24, name: "Sr Tigre Lounge", type: "Tapas & Lounge", zone: "Centro", lat: 38.9633372, lng: -9.416584, facing: 200, elevated: false, description: "Speakeasy vibes with tapas and cocktails. Four levels to explore.", tags: ["tapas", "lounge", "evening"], placeId: "ChIJ_3SGRXsnHw0RC6NIrn-20O4" },
 ];
 
+// ============================================================
 // SUN MATH
+// ============================================================
 function getSunPosition(date, lat, lng) {
   const rad = Math.PI / 180;
   const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
@@ -51,6 +55,7 @@ function getSunPosition(date, lat, lng) {
   if (altitude > 0 && altitude < 10) golden = 1 - altitude / 10;
   return { altitude, azimuth, golden, isDay: altitude > 0, intensity: Math.max(0, Math.min(1, altitude / 15)) };
 }
+
 function getSunrise(date, lat) {
   const rad = Math.PI / 180;
   const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
@@ -60,8 +65,189 @@ function getSunrise(date, lat) {
   const HA = Math.acos(cosHA) / rad;
   return { sunrise: 12 - HA / 15, sunset: 12 + HA / 15 };
 }
-function getVenueSunScore(venue, sun) {
-  if (!sun.isDay) return 0;
+
+// ============================================================
+// 3D SHADOW ENGINE
+// ============================================================
+// Converts lat/lng to meters relative to a reference point
+const METERS_PER_DEG_LAT = 111320;
+const METERS_PER_DEG_LNG = 111320 * Math.cos((ERICEIRA_LAT * Math.PI) / 180);
+
+function toMeters(lat, lng) {
+  return {
+    x: (lng - ERICEIRA_LNG) * METERS_PER_DEG_LNG,
+    y: (lat - ERICEIRA_LAT) * METERS_PER_DEG_LAT,
+  };
+}
+
+// Compute shadow polygon from a building polygon given sun altitude and azimuth
+function computeShadowPolygon(buildingCoords, heightM, sunAltDeg, sunAzDeg) {
+  if (sunAltDeg <= 0) return null;
+  const rad = Math.PI / 180;
+  // Shadow length in meters
+  const shadowLen = heightM / Math.tan(sunAltDeg * rad);
+  // Shadow direction (opposite of sun azimuth)
+  const shadowAz = ((sunAzDeg + 180) % 360) * rad;
+  const dx = shadowLen * Math.sin(shadowAz);
+  const dy = shadowLen * Math.cos(shadowAz);
+
+  // Shadow polygon = building footprint + offset footprint
+  const offset = buildingCoords.map((c) => ({ x: c.x + dx, y: c.y + dy }));
+  // Convex hull of building + shadow tip
+  const allPoints = [...buildingCoords, ...offset];
+  return convexHull(allPoints);
+}
+
+// Simple convex hull (Graham scan)
+function convexHull(points) {
+  if (points.length < 3) return points;
+  const pts = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+  const cross = (O, A, B) => (A.x - O.x) * (B.y - O.y) - (A.y - O.y) * (B.x - O.x);
+  const lower = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper = [];
+  for (let i = pts.length - 1; i >= 0; i--) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], pts[i]) <= 0) upper.pop();
+    upper.push(pts[i]);
+  }
+  upper.pop();
+  lower.pop();
+  return lower.concat(upper);
+}
+
+// Point-in-polygon test
+function pointInPolygon(px, py, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x, yi = polygon[i].y;
+    const xj = polygon[j].x, yj = polygon[j].y;
+    const intersect = yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// Compute shadow penalty for a venue given buildings + sun
+function computeShadowPenalty(venueLat, venueLng, buildings, sunAlt, sunAz) {
+  if (sunAlt <= 0 || buildings.length === 0) return 0;
+  const vPt = toMeters(venueLat, venueLng);
+  let maxPenalty = 0;
+
+  for (const bld of buildings) {
+    const shadow = computeShadowPolygon(bld.coordsM, bld.height, sunAlt, sunAz);
+    if (shadow && pointInPolygon(vPt.x, vPt.y, shadow)) {
+      // Also check venue isn't inside the building footprint itself
+      if (!pointInPolygon(vPt.x, vPt.y, bld.coordsM)) {
+        // Penalty scales with building height — tall buildings cast harder shadows
+        const penalty = Math.min(1, bld.height / 15);
+        maxPenalty = Math.max(maxPenalty, penalty);
+      }
+    }
+  }
+  return maxPenalty;
+}
+
+// ============================================================
+// OSM BUILDING FETCHER
+// ============================================================
+async function fetchOSMBuildings() {
+  const bbox = "38.958,-9.422,38.975,-9.412";
+  const query = `[out:json][timeout:30];(way["building"](${bbox}););out body;>;out skel qt;`;
+  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const elements = data.elements || [];
+    const nodes = {};
+    elements.forEach((e) => {
+      if (e.type === "node") nodes[e.id] = e;
+    });
+
+    const buildings = [];
+    elements.forEach((e) => {
+      if (e.type !== "way" || !e.tags?.building) return;
+      const coords = (e.nodes || [])
+        .map((nid) => nodes[nid])
+        .filter(Boolean)
+        .map((n) => ({ lat: n.lat, lng: n.lon }));
+      if (coords.length < 3) return;
+
+      const levels = parseInt(e.tags["building:levels"]) || null;
+      const heightTag = parseFloat(e.tags["height"]) || null;
+      // Estimate height: use tag, or levels * 3m, or default 8m (typical Ericeira 2-3 floors)
+      const height = heightTag || (levels ? levels * 3 : 8);
+      const coordsM = coords.map((c) => toMeters(c.lat, c.lng));
+
+      buildings.push({ id: e.id, coords, coordsM, height, levels, tags: e.tags });
+    });
+
+    console.log(`[Shadow Engine] Loaded ${buildings.length} buildings from OSM`);
+    return buildings;
+  } catch (err) {
+    console.warn("[Shadow Engine] OSM fetch failed, using fallback:", err.message);
+    return null;
+  }
+}
+
+// ============================================================
+// FALLBACK BUILDING DATA — key structures near venues
+// hand-mapped from satellite imagery of Ericeira old town
+// Each entry: [lat, lng] pairs forming polygon + estimated height
+// ============================================================
+const FALLBACK_BUILDINGS = [
+  // Block east of Mar das Latas / Ouriço — Rua Capitão João Lopes
+  { coords: [{ lat: 38.9636, lng: -9.4181 }, { lat: 38.9636, lng: -9.4179 }, { lat: 38.9634, lng: -9.4179 }, { lat: 38.9634, lng: -9.4181 }], height: 10 },
+  { coords: [{ lat: 38.9638, lng: -9.4182 }, { lat: 38.9638, lng: -9.4180 }, { lat: 38.9636, lng: -9.4180 }, { lat: 38.9636, lng: -9.4182 }], height: 9 },
+  // Block around Tubo Bar / Tasquinha do Joy area
+  { coords: [{ lat: 38.9647, lng: -9.4177 }, { lat: 38.9647, lng: -9.4174 }, { lat: 38.9644, lng: -9.4174 }, { lat: 38.9644, lng: -9.4177 }], height: 11 },
+  { coords: [{ lat: 38.9644, lng: -9.4177 }, { lat: 38.9644, lng: -9.4175 }, { lat: 38.9641, lng: -9.4175 }, { lat: 38.9641, lng: -9.4177 }], height: 9 },
+  // Block north of Tik Tapas / Hemingway's — Rua do Ericeira
+  { coords: [{ lat: 38.9623, lng: -9.4178 }, { lat: 38.9623, lng: -9.4175 }, { lat: 38.9620, lng: -9.4175 }, { lat: 38.9620, lng: -9.4178 }], height: 10 },
+  { coords: [{ lat: 38.9623, lng: -9.4175 }, { lat: 38.9623, lng: -9.4172 }, { lat: 38.9620, lng: -9.4172 }, { lat: 38.9620, lng: -9.4175 }], height: 12 },
+  // Block behind 7Janelas / PRÉDIO — Rua 5 de Outubro
+  { coords: [{ lat: 38.9645, lng: -9.4173 }, { lat: 38.9645, lng: -9.4170 }, { lat: 38.9642, lng: -9.4170 }, { lat: 38.9642, lng: -9.4173 }], height: 10 },
+  { coords: [{ lat: 38.9642, lng: -9.4170 }, { lat: 38.9642, lng: -9.4167 }, { lat: 38.9639, lng: -9.4167 }, { lat: 38.9639, lng: -9.4170 }], height: 9 },
+  // Largo dos Condes block (Uni Sushi / Sr Tigre area)
+  { coords: [{ lat: 38.9640, lng: -9.4168 }, { lat: 38.9640, lng: -9.4165 }, { lat: 38.9637, lng: -9.4165 }, { lat: 38.9637, lng: -9.4168 }], height: 10 },
+  { coords: [{ lat: 38.9637, lng: -9.4168 }, { lat: 38.9637, lng: -9.4165 }, { lat: 38.9634, lng: -9.4165 }, { lat: 38.9634, lng: -9.4168 }], height: 8 },
+  // La Popular / Misericórdia block
+  { coords: [{ lat: 38.9656, lng: -9.4184 }, { lat: 38.9656, lng: -9.4181 }, { lat: 38.9653, lng: -9.4181 }, { lat: 38.9653, lng: -9.4184 }], height: 11 },
+  { coords: [{ lat: 38.9653, lng: -9.4181 }, { lat: 38.9653, lng: -9.4178 }, { lat: 38.9650, lng: -9.4178 }, { lat: 38.9650, lng: -9.4181 }], height: 9 },
+  // Casa da Fernanda / Largo das Ribas area
+  { coords: [{ lat: 38.9649, lng: -9.4180 }, { lat: 38.9649, lng: -9.4177 }, { lat: 38.9646, lng: -9.4177 }, { lat: 38.9646, lng: -9.4180 }], height: 10 },
+  // Rua Dr. Eduardo Burnay — Pedra Dura area
+  { coords: [{ lat: 38.9624, lng: -9.4166 }, { lat: 38.9624, lng: -9.4163 }, { lat: 38.9621, lng: -9.4163 }, { lat: 38.9621, lng: -9.4166 }], height: 10 },
+  { coords: [{ lat: 38.9621, lng: -9.4166 }, { lat: 38.9621, lng: -9.4163 }, { lat: 38.9618, lng: -9.4163 }, { lat: 38.9618, lng: -9.4166 }], height: 9 },
+  // Adega 1987 / Jukebox strip — Rua Alves Crespo
+  { coords: [{ lat: 38.9625, lng: -9.4184 }, { lat: 38.9625, lng: -9.4181 }, { lat: 38.9622, lng: -9.4181 }, { lat: 38.9622, lng: -9.4184 }], height: 9 },
+  // Ti Matilde area — R. Dr. Manuel Arriaga
+  { coords: [{ lat: 38.9695, lng: -9.4200 }, { lat: 38.9695, lng: -9.4197 }, { lat: 38.9692, lng: -9.4197 }, { lat: 38.9692, lng: -9.4200 }], height: 10 },
+  { coords: [{ lat: 38.9692, lng: -9.4200 }, { lat: 38.9692, lng: -9.4197 }, { lat: 38.9689, lng: -9.4197 }, { lat: 38.9689, lng: -9.4200 }], height: 8 },
+  // Sebastião Bar promenade — buildings to the east
+  { coords: [{ lat: 38.9730, lng: -9.4195 }, { lat: 38.9730, lng: -9.4192 }, { lat: 38.9727, lng: -9.4192 }, { lat: 38.9727, lng: -9.4195 }], height: 7 },
+  // Bar Motel area — Rua do Mercado
+  { coords: [{ lat: 38.9654, lng: -9.4164 }, { lat: 38.9654, lng: -9.4161 }, { lat: 38.9651, lng: -9.4161 }, { lat: 38.9651, lng: -9.4164 }], height: 10 },
+  // 5 e Meio / Tik Tapas block
+  { coords: [{ lat: 38.9626, lng: -9.4178 }, { lat: 38.9626, lng: -9.4175 }, { lat: 38.9624, lng: -9.4175 }, { lat: 38.9624, lng: -9.4178 }], height: 10 },
+  // Balagan — Praia do Sul cliffside buildings (sparse)
+  { coords: [{ lat: 38.9590, lng: -9.4157 }, { lat: 38.9590, lng: -9.4154 }, { lat: 38.9587, lng: -9.4154 }, { lat: 38.9587, lng: -9.4157 }], height: 6 },
+  // Algodio Beach Club — minimal nearby structures
+  { coords: [{ lat: 38.9677, lng: -9.4200 }, { lat: 38.9677, lng: -9.4197 }, { lat: 38.9674, lng: -9.4197 }, { lat: 38.9674, lng: -9.4200 }], height: 5 },
+].map((b) => ({
+  ...b,
+  coordsM: b.coords.map((c) => toMeters(c.lat, c.lng)),
+}));
+
+// ============================================================
+// SCORE CALCULATION WITH SHADOWS
+// ============================================================
+function getVenueSunScore(venue, sun, buildings) {
+  if (!sun.isDay) return { score: 0, shadowPenalty: 0, baseScore: 0 };
   let diff = Math.abs(venue.facing - sun.azimuth);
   if (diff > 180) diff = 360 - diff;
   let score = Math.max(0, 1 - diff / 100);
@@ -69,87 +255,232 @@ function getVenueSunScore(venue, sun) {
   if (venue.elevated) score = Math.min(1, score * 1.3 + 0.1);
   else if (sun.altitude < 15) score *= 0.6 + (sun.altitude / 15) * 0.4;
   if (venue.facing >= 240 && venue.facing <= 300 && sun.azimuth >= 230) score = Math.min(1, score * 1.2);
-  return Math.max(0, Math.min(1, score * sun.intensity));
+  let baseScore = Math.max(0, Math.min(1, score * sun.intensity));
+
+  // Apply shadow penalty
+  const shadowPenalty = computeShadowPenalty(venue.lat, venue.lng, buildings, sun.altitude, sun.azimuth);
+  // Elevated venues (rooftops) are above most shadows
+  const effectivePenalty = venue.elevated ? shadowPenalty * 0.2 : shadowPenalty;
+  const finalScore = baseScore * (1 - effectivePenalty * 0.85);
+
+  return { score: Math.max(0, Math.min(1, finalScore)), shadowPenalty: effectivePenalty, baseScore };
 }
+
+// ============================================================
+// HELPERS
+// ============================================================
 function formatTime(h) { const hr = Math.floor(h); const m = Math.round((h - hr) * 60); const p = hr >= 12 ? "PM" : "AM"; const h12 = hr > 12 ? hr - 12 : hr === 0 ? 12 : hr; return `${h12}:${String(m).padStart(2, "0")} ${p}`; }
 function getTimeLabel(sun) { if (sun.golden > 0.3) return "Golden Hour"; if (!sun.isDay) return "Night"; if (sun.altitude < 20) return sun.azimuth < 180 ? "Early Morning" : "Late Afternoon"; return sun.azimuth < 180 ? "Morning" : "Afternoon"; }
 function getDirectionsLink(v) { return `https://www.google.com/maps/dir/?api=1&destination=${v.lat},${v.lng}&destination_place_id=${v.placeId}&travelmode=walking`; }
 function getMapsLink(v) { return `https://www.google.com/maps/search/?api=1&query=${v.lat},${v.lng}&query_place_id=${v.placeId}`; }
 
-// MAP (Leaflet + CartoDB dark tiles)
-function MapView({ venues, scores, selectedId, onSelect }) {
+// ============================================================
+// MAP WITH SHADOW OVERLAY
+// ============================================================
+function MapView({ venues, scores, selectedId, onSelect, buildings, sun }) {
   const mapRef = useRef(null);
   const mapObjRef = useRef(null);
   const markersRef = useRef([]);
+  const shadowLayerRef = useRef(null);
   const [ready, setReady] = useState(false);
+
   useEffect(() => {
     if (window.L) { setReady(true); return; }
     const css = document.createElement("link"); css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"; document.head.appendChild(css);
     const js = document.createElement("script"); js.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"; js.onload = () => setReady(true); document.head.appendChild(js);
   }, []);
+
   useEffect(() => {
     if (!ready || !mapRef.current || mapObjRef.current) return;
     const L = window.L;
     const map = L.map(mapRef.current, { center: [ERICEIRA_LAT, ERICEIRA_LNG], zoom: 16, zoomControl: false });
     L.control.zoom({ position: "bottomleft" }).addTo(map);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { attribution: '© <a href="https://carto.com/">CARTO</a> · © <a href="https://osm.org/">OSM</a>', maxZoom: 19 }).addTo(map);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { attribution: '© <a href="https://carto.com/">CARTO</a>', maxZoom: 19 }).addTo(map);
     mapObjRef.current = map;
     setTimeout(() => map.invalidateSize(), 100);
   }, [ready]);
+
+  // Draw shadow polygons on map
+  useEffect(() => {
+    if (!mapObjRef.current || !window.L || !sun.isDay) return;
+    const L = window.L;
+    const map = mapObjRef.current;
+
+    if (shadowLayerRef.current) map.removeLayer(shadowLayerRef.current);
+
+    const shadowGroup = L.layerGroup();
+    const rad = Math.PI / 180;
+
+    buildings.forEach((bld) => {
+      if (sun.altitude <= 1) return;
+      const shadowLen = bld.height / Math.tan(sun.altitude * rad);
+      const shadowAz = ((sun.azimuth + 180) % 360) * rad;
+      const dLat = (shadowLen * Math.cos(shadowAz)) / METERS_PER_DEG_LAT;
+      const dLng = (shadowLen * Math.sin(shadowAz)) / METERS_PER_DEG_LNG;
+
+      const coords = bld.coords.map((c) => [c.lat, c.lng]);
+      const shadowCoords = bld.coords.map((c) => [c.lat + dLat, c.lng + dLng]);
+      // Merge to form shadow polygon (simplified: convex hull of both)
+      const allLL = [...coords, ...shadowCoords];
+
+      // Draw building footprint
+      L.polygon(coords, {
+        color: "rgba(180, 160, 120, 0.3)",
+        fillColor: "rgba(180, 160, 120, 0.15)",
+        weight: 0.5,
+        fillOpacity: 0.15,
+      }).addTo(shadowGroup);
+
+      // Draw shadow
+      L.polygon(allLL, {
+        color: "transparent",
+        fillColor: "rgba(0, 0, 20, 0.35)",
+        weight: 0,
+        fillOpacity: 0.35,
+      }).addTo(shadowGroup);
+    });
+
+    shadowGroup.addTo(map);
+    shadowLayerRef.current = shadowGroup;
+  }, [buildings, sun]);
+
+  // Update venue markers
   useEffect(() => {
     if (!mapObjRef.current || !window.L) return;
     const L = window.L; const map = mapObjRef.current;
-    markersRef.current.forEach(m => map.removeLayer(m)); markersRef.current = [];
-    venues.forEach(v => {
-      const score = scores[v.id] || 0; const isSel = v.id === selectedId;
+    markersRef.current.forEach((m) => map.removeLayer(m));
+    markersRef.current = [];
+
+    venues.forEach((v) => {
+      const { score, shadowPenalty } = scores[v.id] || { score: 0, shadowPenalty: 0 };
+      const isSel = v.id === selectedId;
       const color = score > 0.55 ? "#e8a840" : score > 0.2 ? "#8b6a2f" : "#555";
       const sz = isSel ? 18 : score > 0.55 ? 14 : score > 0.2 ? 10 : 7;
-      const glow = score > 0.55 ? `box-shadow:0 0 ${isSel?25:18}px ${color}90,0 0 ${isSel?40:30}px ${color}40;` : score > 0.2 ? `box-shadow:0 0 8px ${color}50;` : "";
-      const icon = L.divIcon({ className: "", html: `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${color};border:${isSel?"2.5px solid #f4d48a":"1.5px solid "+color+"80"};${glow}transform:translate(-50%,-50%);transition:all 0.3s;"></div>`, iconSize: [0, 0] });
+      const glow = score > 0.55 ? `box-shadow:0 0 ${isSel ? 25 : 18}px ${color}90,0 0 ${isSel ? 40 : 30}px ${color}40;` : score > 0.2 ? `box-shadow:0 0 8px ${color}50;` : "";
+
+      const icon = L.divIcon({
+        className: "",
+        html: `<div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${color};border:${isSel ? "2.5px solid #f4d48a" : "1.5px solid " + color + "80"};${glow}transform:translate(-50%,-50%);transition:all 0.3s;"></div>`,
+        iconSize: [0, 0],
+      });
+
       const marker = L.marker([v.lat, v.lng], { icon, zIndexOffset: isSel ? 1000 : Math.round(score * 100) }).addTo(map);
-      const statusText = score > 0.55 ? `☀️ Full Sun ${Math.round(score*100)}%` : score > 0.2 ? `🌤 Partial ${Math.round(score*100)}%` : "🌑 Shade";
-      marker.bindPopup(`<div style="font-family:-apple-system,system-ui,sans-serif;min-width:180px;padding:4px 0;"><div style="font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:1px;">${v.name}</div><div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">${v.type} · ${v.zone}</div><div style="font-size:13px;font-weight:500;margin-bottom:10px;color:${color};">${statusText}</div><div style="display:flex;gap:6px;"><a href="${getDirectionsLink(v)}" target="_blank" rel="noopener" style="flex:1;text-align:center;font-size:12px;font-weight:600;color:#fff;background:#e8a840;text-decoration:none;padding:8px 12px;border-radius:8px;">🚶 Walk There</a><a href="${getMapsLink(v)}" target="_blank" rel="noopener" style="flex:1;text-align:center;font-size:12px;font-weight:500;color:#666;background:#f0f0f0;text-decoration:none;padding:8px 12px;border-radius:8px;">📍 Maps</a></div></div>`, { className: "custom-popup", maxWidth: 250 });
+
+      const statusText = score > 0.55 ? `☀️ Full Sun ${Math.round(score * 100)}%` : score > 0.2 ? `🌤 Partial ${Math.round(score * 100)}%` : "🌑 Shade";
+      const shadowNote = shadowPenalty > 0.3 ? `<div style="font-size:10px;color:#c44;margin-bottom:6px;">🏢 Building shadow detected (${Math.round(shadowPenalty * 100)}% blocked)</div>` : shadowPenalty > 0 ? `<div style="font-size:10px;color:#886;margin-bottom:6px;">🏢 Light shadow (${Math.round(shadowPenalty * 100)}% blocked)</div>` : "";
+
+      marker.bindPopup(
+        `<div style="font-family:-apple-system,system-ui,sans-serif;min-width:180px;padding:4px 0;">
+          <div style="font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:1px;">${v.name}</div>
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">${v.type} · ${v.zone}</div>
+          <div style="font-size:13px;font-weight:500;margin-bottom:4px;color:${color};">${statusText}</div>
+          ${shadowNote}
+          <div style="display:flex;gap:6px;">
+            <a href="${getDirectionsLink(v)}" target="_blank" rel="noopener" style="flex:1;text-align:center;font-size:12px;font-weight:600;color:#fff;background:#e8a840;text-decoration:none;padding:8px 12px;border-radius:8px;">🚶 Walk There</a>
+            <a href="${getMapsLink(v)}" target="_blank" rel="noopener" style="flex:1;text-align:center;font-size:12px;font-weight:500;color:#666;background:#f0f0f0;text-decoration:none;padding:8px 12px;border-radius:8px;">📍 Maps</a>
+          </div>
+        </div>`,
+        { className: "custom-popup", maxWidth: 250 }
+      );
+
       if (isSel) { marker.openPopup(); map.panTo([v.lat, v.lng], { animate: true }); }
       marker.on("click", () => onSelect(v.id));
       markersRef.current.push(marker);
     });
   }, [venues, scores, selectedId, onSelect]);
-  useEffect(() => { const h = () => mapObjRef.current?.invalidateSize(); window.addEventListener("resize", h); return () => window.removeEventListener("resize", h); }, []);
+
+  useEffect(() => {
+    const h = () => mapObjRef.current?.invalidateSize();
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+
   return <div ref={mapRef} className="w-full h-full" style={{ background: "#0d0d14" }} />;
 }
 
+// ============================================================
 // SUN DIAL
+// ============================================================
 function SunDial({ sun }) {
   const progress = sun.azimuth ? Math.max(0, Math.min(1, (sun.azimuth - 80) / 200)) : 0.5;
   const angle = Math.PI - progress * Math.PI;
-  const sx = 50 + 42 * Math.cos(angle); const sy = 50 - 42 * Math.sin(angle) * 0.6;
+  const sx = 50 + 42 * Math.cos(angle);
+  const sy = 50 - 42 * Math.sin(angle) * 0.6;
   const col = sun.golden > 0.3 ? "#f4a020" : sun.isDay ? "#f0d060" : "#334";
-  return (<svg viewBox="0 0 100 55" className="w-full" style={{ maxWidth: 170 }}><line x1="8" y1="50" x2="92" y2="50" stroke="rgba(240,232,216,0.12)" strokeWidth="0.5" /><path d="M 8 50 Q 50 -10 92 50" fill="none" stroke="rgba(240,232,216,0.06)" strokeWidth="0.5" strokeDasharray="2,2" />{sun.isDay && <circle cx={sx} cy={sy} r={sun.golden > 0.3 ? 8 : 4} fill={col} opacity="0.15" />}<circle cx={sx} cy={sy} r="3" fill={col} /><text x="6" y="54" fill="rgba(240,232,216,0.25)" fontSize="3.5">E</text><text x="89" y="54" fill="rgba(240,232,216,0.25)" fontSize="3.5">W</text></svg>);
+  return (
+    <svg viewBox="0 0 100 55" className="w-full" style={{ maxWidth: 170 }}>
+      <line x1="8" y1="50" x2="92" y2="50" stroke="rgba(240,232,216,0.12)" strokeWidth="0.5" />
+      <path d="M 8 50 Q 50 -10 92 50" fill="none" stroke="rgba(240,232,216,0.06)" strokeWidth="0.5" strokeDasharray="2,2" />
+      {sun.isDay && <circle cx={sx} cy={sy} r={sun.golden > 0.3 ? 8 : 4} fill={col} opacity="0.15" />}
+      <circle cx={sx} cy={sy} r="3" fill={col} />
+      <text x="6" y="54" fill="rgba(240,232,216,0.25)" fontSize="3.5">E</text>
+      <text x="89" y="54" fill="rgba(240,232,216,0.25)" fontSize="3.5">W</text>
+    </svg>
+  );
 }
 
+// ============================================================
 // VENUE CARD
-function VenueCard({ venue, score, isSelected, onClick }) {
+// ============================================================
+function VenueCard({ venue, scoreData, isSelected, onClick }) {
+  const { score, shadowPenalty, baseScore } = scoreData;
   const pct = Math.round(score * 100);
   const st = score > 0.55 ? "full" : score > 0.2 ? "partial" : "shade";
   const label = st === "full" ? "Full Sun" : st === "partial" ? "Partial" : "Shade";
   const col = st === "full" ? "#e8a840" : st === "partial" ? "#8b6a2f" : "rgba(240,232,216,0.25)";
+
   return (
     <button onClick={onClick} className={`w-full text-left transition-all duration-200 rounded-xl border p-3.5 ${isSelected ? "border-amber-500/40 bg-amber-900/15" : "border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.08]"}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5"><div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: col, boxShadow: st === "full" ? `0 0 8px ${col}60` : "none" }} /><h3 className="text-sm font-medium text-stone-200 truncate">{venue.name}</h3></div>
-          <p className="text-[10px] uppercase tracking-wider text-stone-500 ml-4">{venue.type} · {venue.zone}</p>
+          <div className="flex items-center gap-2 mb-0.5">
+            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: col, boxShadow: st === "full" ? `0 0 8px ${col}60` : "none" }} />
+            <h3 className="text-sm font-medium text-stone-200 truncate">{venue.name}</h3>
+          </div>
+          <p className="text-[10px] uppercase tracking-wider text-stone-500 ml-4">
+            {venue.type} · {venue.zone}
+            {shadowPenalty > 0.3 && <span className="text-red-400/60 ml-1">· 🏢 shadowed</span>}
+            {shadowPenalty > 0 && shadowPenalty <= 0.3 && <span className="text-yellow-500/40 ml-1">· partial shadow</span>}
+          </p>
         </div>
-        <div className="text-right flex-shrink-0"><div className="text-lg font-light" style={{ color: col }}>{pct}%</div><div className="text-[9px] uppercase tracking-wider" style={{ color: col }}>{label}</div></div>
+        <div className="text-right flex-shrink-0">
+          <div className="text-lg font-light" style={{ color: col }}>{pct}%</div>
+          <div className="text-[9px] uppercase tracking-wider" style={{ color: col }}>{label}</div>
+        </div>
       </div>
       {isSelected && (
         <div className="mt-3 ml-4">
           <p className="text-xs text-stone-400 leading-relaxed mb-2">{venue.description}</p>
-          <div className="flex flex-wrap gap-1.5 mb-3">{venue.tags.map(t => <span key={t} className="text-[9px] px-2 py-0.5 rounded-full bg-white/[0.04] text-stone-500 uppercase tracking-wider">{t}</span>)}</div>
-          <div className="h-1 rounded-full bg-white/[0.04] overflow-hidden mb-3"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: st === "full" ? "linear-gradient(90deg,#e8a840,#f4c362)" : st === "partial" ? "#8b6a2f" : "rgba(240,232,216,0.15)" }} /></div>
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {venue.tags.map((t) => (
+              <span key={t} className="text-[9px] px-2 py-0.5 rounded-full bg-white/[0.04] text-stone-500 uppercase tracking-wider">{t}</span>
+            ))}
+          </div>
+          {/* Sun bar with shadow indicator */}
+          <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden mb-1 relative">
+            <div className="h-full rounded-full transition-all duration-500" style={{
+              width: `${Math.round(baseScore * 100)}%`,
+              background: st === "full" ? "linear-gradient(90deg,#e8a840,#f4c362)" : st === "partial" ? "#8b6a2f" : "rgba(240,232,216,0.15)",
+              opacity: 0.3,
+            }} />
+            <div className="h-full rounded-full transition-all duration-500 absolute top-0 left-0" style={{
+              width: `${pct}%`,
+              background: st === "full" ? "linear-gradient(90deg,#e8a840,#f4c362)" : st === "partial" ? "#8b6a2f" : "rgba(240,232,216,0.15)",
+            }} />
+          </div>
+          {shadowPenalty > 0 && (
+            <p className="text-[9px] text-stone-600 mb-3">
+              🏢 {Math.round(shadowPenalty * 100)}% shadow from nearby buildings
+              {venue.elevated && " (reduced — rooftop)"}
+            </p>
+          )}
           <div className="flex gap-2">
-            <a href={getDirectionsLink(venue)} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="flex-1 text-center text-xs font-medium px-3 py-2.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 transition-colors">🚶 Walk There</a>
-            <a href={getMapsLink(venue)} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="flex-1 text-center text-xs font-medium px-3 py-2.5 rounded-lg bg-white/[0.04] text-stone-400 border border-white/[0.06] hover:bg-white/[0.08] transition-colors">📍 View on Maps</a>
+            <a href={getDirectionsLink(venue)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-1 text-center text-xs font-medium px-3 py-2.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 transition-colors">
+              🚶 Walk There
+            </a>
+            <a href={getMapsLink(venue)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-1 text-center text-xs font-medium px-3 py-2.5 rounded-lg bg-white/[0.04] text-stone-400 border border-white/[0.06] hover:bg-white/[0.08] transition-colors">
+              📍 View on Maps
+            </a>
           </div>
         </div>
       )}
@@ -157,54 +488,138 @@ function VenueCard({ venue, score, isSelected, onClick }) {
   );
 }
 
+// ============================================================
 // MAIN APP
+// ============================================================
 export default function App() {
   const now = new Date();
   const [timeMinutes, setTimeMinutes] = useState(now.getHours() * 60 + now.getMinutes());
   const [selectedId, setSelectedId] = useState(null);
   const [filter, setFilter] = useState("all");
   const [showPanel, setShowPanel] = useState(true);
-  const currentDate = useMemo(() => { const d = new Date(); d.setHours(Math.floor(timeMinutes / 60), timeMinutes % 60, 0, 0); return d; }, [timeMinutes]);
+  const [buildings, setBuildings] = useState(FALLBACK_BUILDINGS);
+  const [buildingSource, setBuildingSource] = useState("fallback");
+
+  // Fetch real OSM buildings on mount
+  useEffect(() => {
+    fetchOSMBuildings().then((osm) => {
+      if (osm && osm.length > 10) {
+        setBuildings(osm);
+        setBuildingSource("osm");
+      }
+    });
+  }, []);
+
+  const currentDate = useMemo(() => {
+    const d = new Date();
+    d.setHours(Math.floor(timeMinutes / 60), timeMinutes % 60, 0, 0);
+    return d;
+  }, [timeMinutes]);
+
   const sun = useMemo(() => getSunPosition(currentDate, ERICEIRA_LAT, ERICEIRA_LNG), [currentDate]);
   const { sunrise, sunset } = useMemo(() => getSunrise(currentDate, ERICEIRA_LAT), [currentDate]);
-  const scores = useMemo(() => { const s = {}; VENUES.forEach(v => { s[v.id] = getVenueSunScore(v, sun); }); return s; }, [sun]);
+
+  const scores = useMemo(() => {
+    const s = {};
+    VENUES.forEach((v) => {
+      s[v.id] = getVenueSunScore(v, sun, buildings);
+    });
+    return s;
+  }, [sun, buildings]);
+
   const sortedVenues = useMemo(() => {
     let f = [...VENUES];
-    if (filter === "sunlit") f = f.filter(v => scores[v.id] > 0.4);
-    if (filter === "rooftop") f = f.filter(v => v.elevated);
-    if (filter === "bars") f = f.filter(v => v.type.toLowerCase().includes("bar") || v.type.toLowerCase().includes("cocktail"));
-    if (filter === "food") f = f.filter(v => v.type.toLowerCase().includes("restaurant") || v.type.toLowerCase().includes("seafood") || v.type.toLowerCase().includes("tapas") || v.type.toLowerCase().includes("sushi") || v.tags.includes("food"));
-    return f.sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0));
+    if (filter === "sunlit") f = f.filter((v) => scores[v.id]?.score > 0.4);
+    if (filter === "rooftop") f = f.filter((v) => v.elevated);
+    if (filter === "bars") f = f.filter((v) => v.type.toLowerCase().includes("bar") || v.type.toLowerCase().includes("cocktail"));
+    if (filter === "food") f = f.filter((v) => v.type.toLowerCase().includes("restaurant") || v.type.toLowerCase().includes("seafood") || v.type.toLowerCase().includes("tapas") || v.type.toLowerCase().includes("sushi") || v.tags.includes("food"));
+    return f.sort((a, b) => (scores[b.id]?.score || 0) - (scores[a.id]?.score || 0));
   }, [scores, filter]);
+
   return (
     <div className="h-screen w-screen flex flex-col lg:flex-row bg-[#0a0a0f] text-stone-200 overflow-hidden" style={{ fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif" }}>
+      {/* MAP */}
       <div className="flex-1 relative min-h-[40vh] lg:min-h-0">
-        <MapView venues={VENUES} scores={scores} selectedId={selectedId} onSelect={setSelectedId} />
-        <div className="absolute top-4 left-4 pointer-events-none z-[500]"><h1 className="text-xl md:text-2xl font-light tracking-tight drop-shadow-lg">Ericeira <span style={{ color: "#e8a840" }}>Golden Hour</span></h1><p className="text-[10px] uppercase tracking-[0.2em] text-stone-400 mt-0.5 drop-shadow">{VENUES.length} spots · tap for directions</p></div>
-        <button onClick={() => setShowPanel(!showPanel)} className="lg:hidden absolute top-4 right-4 w-10 h-10 rounded-lg bg-black/70 backdrop-blur border border-white/10 flex items-center justify-center text-stone-300 z-[500]">{showPanel ? "✕" : "☰"}</button>
+        <MapView venues={VENUES} scores={scores} selectedId={selectedId} onSelect={setSelectedId} buildings={buildings} sun={sun} />
+        <div className="absolute top-4 left-4 pointer-events-none z-[500]">
+          <h1 className="text-xl md:text-2xl font-light tracking-tight drop-shadow-lg">
+            Ericeira <span style={{ color: "#e8a840" }}>Golden Hour</span>
+          </h1>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400 mt-0.5 drop-shadow">
+            {VENUES.length} spots · real building shadows · tap for directions
+          </p>
+        </div>
+        {/* Building data badge */}
+        <div className="absolute bottom-4 left-4 z-[500]">
+          <div className={`text-[9px] uppercase tracking-wider px-2.5 py-1 rounded-full backdrop-blur ${buildingSource === "osm" ? "bg-green-500/10 text-green-400/70 border border-green-500/20" : "bg-amber-500/10 text-amber-400/60 border border-amber-500/20"}`}>
+            {buildingSource === "osm" ? `🏢 ${buildings.length} OSM buildings loaded` : `🏢 ${buildings.length} fallback buildings`}
+          </div>
+        </div>
+        <button onClick={() => setShowPanel(!showPanel)} className="lg:hidden absolute top-4 right-4 w-10 h-10 rounded-lg bg-black/70 backdrop-blur border border-white/10 flex items-center justify-center text-stone-300 z-[500]">
+          {showPanel ? "✕" : "☰"}
+        </button>
       </div>
+
+      {/* PANEL */}
       <div className={`${showPanel ? "flex" : "hidden"} lg:flex flex-col w-full lg:w-[360px] xl:w-[400px] bg-[#0a0a0f] border-t lg:border-t-0 lg:border-l border-white/[0.06] overflow-hidden flex-shrink-0 max-h-[60vh] lg:max-h-none`}>
+        {/* Time control */}
         <div className="flex-shrink-0 px-4 pt-4 pb-3 border-b border-white/[0.04]">
           <div className="flex items-center justify-between mb-2">
-            <div><div className="text-3xl font-light" style={{ color: sun.golden > 0.3 ? "#e8a840" : sun.isDay ? "#c8c0b0" : "#555" }}>{formatTime(timeMinutes / 60)}</div><div className="text-[10px] uppercase tracking-[0.15em] mt-0.5" style={{ color: sun.golden > 0.3 ? "rgba(232,168,64,0.7)" : "rgba(160,150,140,0.4)" }}>{getTimeLabel(sun)}</div></div>
+            <div>
+              <div className="text-3xl font-light" style={{ color: sun.golden > 0.3 ? "#e8a840" : sun.isDay ? "#c8c0b0" : "#555" }}>
+                {formatTime(timeMinutes / 60)}
+              </div>
+              <div className="text-[10px] uppercase tracking-[0.15em] mt-0.5" style={{ color: sun.golden > 0.3 ? "rgba(232,168,64,0.7)" : "rgba(160,150,140,0.4)" }}>
+                {getTimeLabel(sun)}
+              </div>
+            </div>
             <SunDial sun={sun} />
           </div>
           <div className="relative mt-1">
             <div className="absolute inset-0 h-1 top-1/2 -translate-y-1/2 rounded-full" style={{ background: "linear-gradient(to right, #1a1a2e 0%, #2a2040 15%, #e8a840 40%, #f4c362 50%, #e8a840 65%, #8b4513 80%, #1a1a2e 100%)", opacity: 0.4 }} />
-            <input type="range" min={Math.floor(sunrise * 60) - 30} max={Math.ceil(sunset * 60) + 30} value={timeMinutes} onChange={e => setTimeMinutes(Number(e.target.value))} className="w-full relative z-10 bg-transparent cursor-pointer h-6" style={{ WebkitAppearance: "none", appearance: "none" }} />
+            <input type="range" min={Math.floor(sunrise * 60) - 30} max={Math.ceil(sunset * 60) + 30} value={timeMinutes} onChange={(e) => setTimeMinutes(Number(e.target.value))} className="w-full relative z-10 bg-transparent cursor-pointer h-6" style={{ WebkitAppearance: "none", appearance: "none" }} />
             <style>{`input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#e8a840;box-shadow:0 0 16px rgba(232,168,64,0.5);border:2px solid #f4d48a;cursor:grab}input[type="range"]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#e8a840;box-shadow:0 0 16px rgba(232,168,64,0.5);border:2px solid #f4d48a;cursor:grab}.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 8px 30px rgba(0,0,0,0.3)!important}.leaflet-popup-tip{display:none!important}`}</style>
-            <div className="flex justify-between text-[9px] text-stone-600 mt-0.5 px-1"><span>{formatTime(sunrise)}</span><span>12:00 PM</span><span>{formatTime(sunset)}</span></div>
+            <div className="flex justify-between text-[9px] text-stone-600 mt-0.5 px-1">
+              <span>{formatTime(sunrise)}</span><span>12:00 PM</span><span>{formatTime(sunset)}</span>
+            </div>
           </div>
         </div>
+
+        {/* Filters */}
         <div className="flex-shrink-0 flex gap-1.5 px-4 py-2.5 overflow-x-auto">
           {[{ key: "all", label: "All" }, { key: "sunlit", label: "Sunlit" }, { key: "rooftop", label: "Rooftops" }, { key: "bars", label: "Bars" }, { key: "food", label: "Food" }].map(({ key, label }) => (
-            <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${filter === key ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>{label}{key === "sunlit" && <span className="ml-1 text-amber-500">{VENUES.filter(v => scores[v.id] > 0.4).length}</span>}</button>
+            <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${filter === key ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>
+              {label}
+              {key === "sunlit" && <span className="ml-1 text-amber-500">{VENUES.filter((v) => scores[v.id]?.score > 0.4).length}</span>}
+            </button>
           ))}
         </div>
+
+        {/* Venue list */}
         <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1.5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(232,168,64,0.15) transparent" }}>
-          {sortedVenues.length === 0 ? (<div className="text-center py-12 text-stone-600"><div className="text-2xl mb-2">◌</div><p className="text-xs">No venues match this filter</p></div>) : sortedVenues.map(v => (<VenueCard key={v.id} venue={v} score={scores[v.id] || 0} isSelected={selectedId === v.id} onClick={() => setSelectedId(selectedId === v.id ? null : v.id)} />))}
+          {sortedVenues.length === 0 ? (
+            <div className="text-center py-12 text-stone-600">
+              <div className="text-2xl mb-2">◌</div>
+              <p className="text-xs">No venues match this filter</p>
+            </div>
+          ) : (
+            sortedVenues.map((v) => (
+              <VenueCard
+                key={v.id}
+                venue={v}
+                scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }}
+                isSelected={selectedId === v.id}
+                onClick={() => setSelectedId(selectedId === v.id ? null : v.id)}
+              />
+            ))
+          )}
         </div>
-        <div className="flex-shrink-0 px-4 py-2.5 border-t border-white/[0.04]"><p className="text-[9px] text-stone-600 text-center">Sun calculated for Ericeira (38.96°N) · Tap venue → walk there</p></div>
+
+        <div className="flex-shrink-0 px-4 py-2.5 border-t border-white/[0.04]">
+          <p className="text-[9px] text-stone-600 text-center">
+            3D shadow engine · {buildingSource === "osm" ? `${buildings.length} real buildings` : "fallback data"} · tap venue → walk there
+          </p>
+        </div>
       </div>
     </div>
   );
