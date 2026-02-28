@@ -474,7 +474,93 @@ function SunDial({ sun }) {
 // ============================================================
 // VENUE CARD
 // ============================================================
-function VenueCard({ venue, scoreData, isSelected, onClick }) {
+// Compute sun scores across the whole day for a venue
+function computeDayTimeline(venue, buildings, date) {
+  const rad = Math.PI / 180;
+  const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
+  const dec = -23.45 * Math.cos(rad * (360 / 365) * (dayOfYear + 10));
+  const cosHA = -Math.tan(rad * ERICEIRA_LAT) * Math.tan(rad * dec);
+  const HA = Math.acos(Math.max(-1, Math.min(1, cosHA))) / rad;
+  const sunriseH = 12 - HA / 15;
+  const sunsetH = 12 + HA / 15;
+  
+  const points = [];
+  let peakScore = 0, peakTime = 12;
+  for (let m = Math.floor(sunriseH * 60); m <= Math.ceil(sunsetH * 60); m += 10) {
+    const d = new Date(date);
+    d.setHours(Math.floor(m / 60), m % 60, 0, 0);
+    const sun = getSunPosition(d, ERICEIRA_LAT, ERICEIRA_LNG);
+    const { score } = getVenueSunScore(venue, sun, buildings);
+    points.push({ m, score });
+    if (score > peakScore) { peakScore = score; peakTime = m; }
+  }
+  return { points, peakScore, peakTime, sunriseM: Math.floor(sunriseH * 60), sunsetM: Math.ceil(sunsetH * 60) };
+}
+
+function SunTimeline({ venue, buildings, currentMinutes, onTimeClick }) {
+  const timeline = useMemo(() => computeDayTimeline(venue, buildings, new Date()), [venue, buildings]);
+  const { points, peakScore, peakTime, sunriseM, sunsetM } = timeline;
+  
+  if (points.length === 0) return null;
+  
+  const w = 280, h = 48, pad = 2;
+  const range = sunsetM - sunriseM;
+  const xScale = (m) => pad + ((m - sunriseM) / range) * (w - 2 * pad);
+  const yScale = (s) => h - pad - s * (h - 2 * pad);
+  
+  const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"}${xScale(p.m).toFixed(1)},${yScale(p.score).toFixed(1)}`).join(" ");
+  const areaD = pathD + ` L${xScale(points[points.length - 1].m).toFixed(1)},${h - pad} L${xScale(points[0].m).toFixed(1)},${h - pad} Z`;
+  
+  const cursorX = xScale(Math.max(sunriseM, Math.min(sunsetM, currentMinutes)));
+  const currentScore = points.reduce((best, p) => Math.abs(p.m - currentMinutes) < Math.abs(best.m - currentMinutes) ? p : best, points[0]);
+  const peakX = xScale(peakTime);
+  
+  const handleClick = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const pct = x / rect.width;
+    const m = Math.round(sunriseM + pct * range);
+    onTimeClick(Math.max(sunriseM, Math.min(sunsetM, m)));
+  };
+
+  return (
+    <div className="mb-3">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[9px] uppercase tracking-wider text-stone-500">Sun timeline — tap to jump</span>
+        {peakScore > 0.3 && (
+          <button onClick={() => onTimeClick(peakTime)} className="text-[9px] uppercase tracking-wider text-amber-400/70 hover:text-amber-400 transition-colors">
+            Peak: {formatTime(peakTime / 60)} ({Math.round(peakScore * 100)}%)
+          </button>
+        )}
+      </div>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full cursor-pointer" style={{ height: 48 }} onClick={handleClick}>
+        {/* Golden hour zones */}
+        <defs>
+          <linearGradient id="sunFill" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#e8a840" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#e8a840" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        {/* Area fill */}
+        <path d={areaD} fill="url(#sunFill)" />
+        {/* Line */}
+        <path d={pathD} fill="none" stroke="#e8a840" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" />
+        {/* Peak marker */}
+        {peakScore > 0.3 && <circle cx={peakX} cy={yScale(peakScore)} r="2.5" fill="#f4c362" opacity="0.6" />}
+        {/* Current time cursor */}
+        <line x1={cursorX} y1={pad} x2={cursorX} y2={h - pad} stroke="#fff" strokeWidth="1" opacity="0.4" strokeDasharray="2,2" />
+        <circle cx={cursorX} cy={yScale(currentScore.score)} r="3" fill={currentScore.score > 0.55 ? "#e8a840" : currentScore.score > 0.2 ? "#8b6a2f" : "#555"} stroke="#fff" strokeWidth="1" />
+      </svg>
+      <div className="flex justify-between text-[8px] text-stone-600 mt-0.5 px-0.5">
+        <span>{formatTime(sunriseM / 60)}</span>
+        <span>noon</span>
+        <span>{formatTime(sunsetM / 60)}</span>
+      </div>
+    </div>
+  );
+}
+
+function VenueCard({ venue, scoreData, isSelected, onClick, buildings, currentMinutes, onTimeClick }) {
   const { score, shadowPenalty, baseScore } = scoreData;
   const pct = Math.round(score * 100);
   const st = score > 0.55 ? "full" : score > 0.2 ? "partial" : "shade";
@@ -508,6 +594,8 @@ function VenueCard({ venue, scoreData, isSelected, onClick }) {
               <span key={t} className="text-[9px] px-2 py-0.5 rounded-full bg-white/[0.04] text-stone-500 uppercase tracking-wider">{t}</span>
             ))}
           </div>
+          {/* Sun Timeline — the key feature: drag to find best time */}
+          <SunTimeline venue={venue} buildings={buildings} currentMinutes={currentMinutes} onTimeClick={onTimeClick} />
           {/* Sun bar with shadow indicator */}
           <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden mb-1 relative">
             <div className="h-full rounded-full transition-all duration-500" style={{
@@ -601,7 +689,7 @@ export default function App() {
             Ericeira <span style={{ color: "#e8a840" }}>Golden Hour</span>
           </h1>
           <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400 mt-0.5 drop-shadow">
-            {VENUES.length} spots scraped from Google Maps · building shadows · tap for directions
+            the sun guide to Ericeira
           </p>
         </div>
         {/* Building data badge */}
@@ -665,6 +753,9 @@ export default function App() {
                 scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }}
                 isSelected={selectedId === v.id}
                 onClick={() => setSelectedId(selectedId === v.id ? null : v.id)}
+                buildings={buildings}
+                currentMinutes={timeMinutes}
+                onTimeClick={setTimeMinutes}
               />
             ))
           )}
