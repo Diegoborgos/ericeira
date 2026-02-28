@@ -363,7 +363,6 @@ function MapView({ venues, scores, selectedId, onSelect, buildings, sun }) {
     if (!ready || !mapRef.current || mapObjRef.current) return;
     const L = window.L;
     const map = L.map(mapRef.current, { center: [ERICEIRA_LAT, ERICEIRA_LNG], zoom: 16, zoomControl: false, attributionControl: false });
-    L.control.zoom({ position: "bottomleft" }).addTo(map);
     L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { attribution: "", maxZoom: 19 }).addTo(map);
     mapObjRef.current = map;
     setTimeout(() => map.invalidateSize(), 100);
