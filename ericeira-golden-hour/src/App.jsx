@@ -6,31 +6,83 @@ const ERICEIRA_LNG = -9.4178;
 // ============================================================
 // VENUE DATA — Google Places verified coordinates
 // ============================================================
+// 75 venues — all scraped from Google Places
 const VENUES = [
-  { id: 1, name: "Mar das Latas", type: "Wine Bar", zone: "Old Town Cliffs", lat: 38.963436, lng: -9.418367, facing: 250, elevated: true, description: "Cliff-edge wine bar with custom box-trays on the wall. The sunset spot.", tags: ["sunset", "wine", "cliffs"], placeId: "ChIJG9RvYQwnHw0R0awMueZK0SQ" },
-  { id: 2, name: "Ouriço Terrace", type: "Bar & Club", zone: "Pescadores", lat: 38.9623784, lng: -9.418625, facing: 270, elevated: true, description: "Portugal's oldest nightclub with ocean-view terrace above Praia dos Pescadores.", tags: ["nightlife", "terrace", "ocean view"], placeId: "ChIJ00jUNp8nHw0RU_n-Kf3yAXg" },
-  { id: 3, name: "Balagan", type: "Restaurant & Rooftop", zone: "Praia do Sul", lat: 38.9586809, lng: -9.415517, facing: 260, elevated: true, description: "Middle Eastern rooftop overlooking Praia do Sul. Best panoramic ocean view.", tags: ["rooftop", "food", "sunset", "coworking"], placeId: "ChIJJ8sswvEnHw0RwyCFK4eSBlA" },
-  { id: 4, name: "Sebastião Bar", type: "Beach Bar", zone: "São Sebastião", lat: 38.9728583, lng: -9.4197101, facing: 280, elevated: false, description: "Sea-view drinks on the promenade near Praia de São Sebastião.", tags: ["casual", "ocean view", "beer"], placeId: "ChIJW8HLqAUnHw0RidCW_i7Kt88" },
-  { id: 5, name: "Jukebox Bar", type: "Cocktail Bar", zone: "Centro", lat: 38.962078, lng: -9.41753, facing: 220, elevated: false, description: "Industrial-chic cocktail bar. Terraces perfectly oriented for sunset.", tags: ["cocktails", "sunset", "evening"], placeId: "ChIJ52JqnwwnHw0R14JJQA54OBQ" },
-  { id: 6, name: "Tubo Bar", type: "Bar", zone: "Old Town", lat: 38.9638904, lng: -9.4173783, facing: 200, elevated: false, description: "Tiny but iconic. The crowd spills into the street — that's where the fun is.", tags: ["nightlife", "local", "street"], placeId: "ChIJrYA7eAwnHw0RQhRha7phF2s" },
-  { id: 7, name: "Adega Bar 1987", type: "Bar", zone: "Old Town", lat: 38.9623073, lng: -9.418189, facing: 230, elevated: false, description: "Affordable drinks in a tight space. Locals' favorite since 1987.", tags: ["local", "cheap", "nightlife"], placeId: "ChIJEbYxlwwnHw0RYHsQNsdje44" },
-  { id: 8, name: "5 e Meio TapRoom", type: "Craft Beer", zone: "Centro", lat: 38.9624819, lng: -9.4175855, facing: 210, elevated: false, description: "Local craft brewery taproom with tapas and outdoor tables.", tags: ["craft beer", "tapas", "casual"], placeId: "ChIJR9fxmYMnHw0RLB_-XOL9gaY" },
-  { id: 9, name: "Ti Matilde", type: "Seafood", zone: "Praia do Norte", lat: 38.969330, lng: -9.419880, facing: 270, elevated: true, description: "Fresh grilled fish on the cliffs. Request an outdoor table for sunset.", tags: ["seafood", "sunset", "traditional"], placeId: "ChIJtQEmCw8nHw0R1OfHzHsmaic" },
-  { id: 10, name: "PRÉDIO", type: "Sushi & Rooftop", zone: "Centro", lat: 38.9636579, lng: -9.4167553, facing: 240, elevated: true, description: "Rooftop patio with city views. Best sushi in town.", tags: ["rooftop", "sushi", "views"], placeId: "ChIJA-mUn7snHw0R0IaR6vBhJOU" },
-  { id: 11, name: "Pedra Dura", type: "Restaurant", zone: "Centro", lat: 38.962165, lng: -9.416387, facing: 200, elevated: false, description: "Reliable Portuguese classics with large patio seating.", tags: ["portuguese", "patio", "family"], placeId: "ChIJQ3LMaQsnHw0RZWwPO1KPN_8" },
-  { id: 12, name: "Tik Tapas", type: "Tapas Bar", zone: "Centro", lat: 38.9622051, lng: -9.4177279, facing: 190, elevated: false, description: "Heated outdoor terrace. Round after round of Portuguese small plates.", tags: ["tapas", "terrace", "evening"], placeId: "ChIJwZ90mQwnHw0RQDPgWmxSRYY" },
-  { id: 13, name: "RIBBAÍ Ribeira d'Ilhas", type: "Beach Bar", zone: "Ribeira d'Ilhas", lat: 38.9879639, lng: -9.41813, facing: 290, elevated: false, description: "Beanbags on a vast wooden deck at the famous surf beach.", tags: ["surf", "beach", "casual"], placeId: "ChIJg22y0FQnHw0RuOXfdsg162w" },
-  { id: 14, name: "Uni Sushi", type: "Sushi", zone: "Largo dos Condes", lat: 38.9638889, lng: -9.4169444, facing: 220, elevated: false, description: "Modern sushi using local catch. Sheltered outdoor terrace.", tags: ["sushi", "terrace", "quality"], placeId: "ChIJHUQ5hgsnHw0RBlUT3qdEdRE" },
-  { id: 15, name: "Barzinho", type: "Bar", zone: "Ribamar", lat: 39.005213, lng: -9.418390, facing: 210, elevated: false, description: "Pool tables, darts, live music. A bit north in Ribamar village.", tags: ["games", "live music", "local"], placeId: "ChIJTyGmZYwmHw0REDI3gxrMkEU" },
-  { id: 16, name: "La Popular", type: "Wine & Tapas", zone: "Misericórdia", lat: 38.965433, lng: -9.4182822, facing: 230, elevated: false, description: "Best-kept secret. Tapas and local wines in a cozy notebook-menu spot.", tags: ["wine", "tapas", "cozy"], placeId: "ChIJrxRCEBQnHw0RQFNnmP-SXiA" },
-  { id: 17, name: "Bar Motel", type: "Wine & Cocktail Bar", zone: "Rua do Mercado", lat: 38.9652101, lng: -9.416229, facing: 200, elevated: false, description: "Hidden gem with oysters, hotdogs, and great cocktails.", tags: ["wine", "cocktails", "intimate"], placeId: "ChIJgW-0dWY1GQ0RBz5ELYY2u2Q" },
-  { id: 18, name: "Tasquinha do Joy", type: "Restaurant", zone: "Old Town", lat: 38.9645637, lng: -9.4178599, facing: 260, elevated: false, description: "Red-checked tablecloths, terracotta dishes, sunset pavement tables.", tags: ["traditional", "sunset", "value"], placeId: "ChIJCd8DcAwnHw0RmaMMf0BoicQ" },
-  { id: 19, name: "Gota d'Álcool", type: "Beach Bar", zone: "São Julião", lat: 38.9327963, lng: -9.4192322, facing: 280, elevated: false, description: "No-frills beach bar at the rugged southern coastline.", tags: ["beach", "casual", "burgers"], placeId: "ChIJF0VORYTYHg0RnXMf117PENw" },
-  { id: 20, name: "Algodio Beach Club", type: "Beach Bar", zone: "Praia do Norte", lat: 38.9675258, lng: -9.4199031, facing: 280, elevated: false, description: "Beach club right on the sand with sunset views and live music.", tags: ["beach", "sunset", "live music"], placeId: "ChIJg_9h-Q4nHw0RJ-iopBF1088" },
-  { id: 21, name: "7Janelas Brewery", type: "Brewpub", zone: "Centro", lat: 38.9642628, lng: -9.4173653, facing: 195, elevated: false, description: "Craft brewery with Portuguese classics and amazing steaks.", tags: ["brewery", "food", "cozy"], placeId: "ChIJbatydgwnHw0RUo9z6hCz8dY" },
-  { id: 22, name: "Hemingway's", type: "Cocktail Bar", zone: "Centro", lat: 38.962051, lng: -9.417543, facing: 230, elevated: false, description: "Best gin selection in town. Low-lit institution for warm evenings.", tags: ["cocktails", "gin", "classic"], placeId: "ChIJS1A2nwwnHw0R3hogv4fzJhQ" },
-  { id: 23, name: "Casa da Fernanda", type: "Café & Bakery", zone: "Pescadores", lat: 38.964687, lng: -9.417883, facing: 270, elevated: true, description: "Overlooking the ocean. Famous for ouriços — Ericeira's signature pastry.", tags: ["café", "pastry", "ocean view", "morning"], placeId: "ChIJpS1lDQwnHw0RE4KU4OqKljY" },
-  { id: 24, name: "Sr Tigre Lounge", type: "Tapas & Lounge", zone: "Centro", lat: 38.9633372, lng: -9.416584, facing: 200, elevated: false, description: "Speakeasy vibes with tapas and cocktails. Four levels to explore.", tags: ["tapas", "lounge", "evening"], placeId: "ChIJ_3SGRXsnHw0RC6NIrn-20O4" },
+  { id: 1, name: "Dom Bilas", type: "Brewpub", zone: "Old Town", lat: 38.964599, lng: -9.417891, facing: 240, elevated: false, rating: 5.0, cat: "food", tags: ["craft beer"], placeId: "ChIJNb-5RwAnHw0R-8yIL0DdJ7w" },
+  { id: 2, name: "LAB", type: "Restaurant", zone: "Centro", lat: 38.9651642, lng: -9.4170493, facing: 220, elevated: false, rating: 4.9, cat: "food", tags: ["food"], placeId: "ChIJI_wFPwAnHw0RN-3EU4Szlyw" },
+  { id: 3, name: "Caminito", type: "Restaurant", zone: "Centro", lat: 38.963267, lng: -9.417427, facing: 220, elevated: false, rating: 4.9, cat: "food", tags: ["food"], placeId: "ChIJHc4lVMEnHw0RETZUfUuTwQ4" },
+  { id: 4, name: "Cheers Bar", type: "Bar", zone: "Centro", lat: 38.9649149, lng: -9.41724, facing: 220, elevated: false, rating: 4.9, cat: "bar", tags: ["drinks"], placeId: "ChIJv8rOjBUnHw0ROljCYC1nqus" },
+  { id: 5, name: "Mother Ericeira", type: "Coffee & Co-work", zone: "Centro", lat: 38.9631425, lng: -9.4164126, facing: 210, elevated: false, rating: 4.9, cat: "cafe", tags: ["coffee"], placeId: "ChIJP6GGMzMnHw0R5pTPytpw_9U" },
+  { id: 6, name: "Tiger & Chick", type: "Café", zone: "Centro", lat: 38.9637129, lng: -9.4168346, facing: 200, elevated: false, rating: 4.9, cat: "cafe", tags: ["coffee"], placeId: "ChIJHTAWjPYnHw0R70QmLlxQWPA" },
+  { id: 7, name: "Mama's Caffes", type: "Coffee Roastery", zone: "Centro", lat: 38.9631583, lng: -9.4174574, facing: 220, elevated: false, rating: 4.9, cat: "cafe", tags: ["coffee"], placeId: "ChIJYZ7OJMsIcm4R6sdF8w9Kx14" },
+  { id: 8, name: "Olá Ericeira", type: "Café", zone: "Rua do Mercado", lat: 38.9649304, lng: -9.416797, facing: 200, elevated: false, rating: 4.9, cat: "cafe", tags: ["coffee"], placeId: "ChIJ9dkqoRcnHw0RWE0BNI0QlGc" },
+  { id: 9, name: "Petiscaria Âncora", type: "Restaurant", zone: "Largo do Cruzeiro", lat: 38.9655123, lng: -9.4186581, facing: 260, elevated: false, rating: 4.8, cat: "food", tags: ["food"], placeId: "ChIJ9c9fQfEnHw0R0lW4QAV8KjY" },
+  { id: 10, name: "La Popular", type: "Wine & Tapas", zone: "Misericórdia", lat: 38.965433, lng: -9.4182822, facing: 240, elevated: false, rating: 4.8, cat: "food", tags: ["food", "wine"], placeId: "ChIJrxRCEBQnHw0RQFNnmP-SXiA" },
+  { id: 11, name: "No Largo há Tasca", type: "Tasca", zone: "Centro", lat: 38.9637939, lng: -9.4171547, facing: 220, elevated: false, rating: 4.8, cat: "food", tags: ["traditional"], placeId: "ChIJEy78FkknHw0RZXkQnLsSFgY" },
+  { id: 12, name: "Tasquinha dos Pescadores", type: "Tasca", zone: "Norte", lat: 38.9676075, lng: -9.4181489, facing: 280, elevated: false, rating: 4.8, cat: "food", tags: ["traditional"], placeId: "ChIJveoGxQ4nHw0Ry_8I1-Tr-FE" },
+  { id: 13, name: "Villa Brunch Café", type: "Brunch", zone: "Centro", lat: 38.964825, lng: -9.417346, facing: 220, elevated: false, rating: 4.8, cat: "cafe", tags: ["brunch"], placeId: "ChIJ-U8ZwRgnHw0Rc1FCiH-VKZk" },
+  { id: 14, name: "5 e Meio TapRoom", type: "Craft Beer", zone: "Centro", lat: 38.9624819, lng: -9.4175855, facing: 240, elevated: false, rating: 4.8, cat: "bar", tags: ["craft beer"], placeId: "ChIJR9fxmYMnHw0RLB_-XOL9gaY" },
+  { id: 15, name: "Sr Tigre Lounge", type: "Tapas & Lounge", zone: "Centro", lat: 38.9633372, lng: -9.416584, facing: 200, elevated: false, rating: 4.8, cat: "bar", tags: ["drinks", "food"], placeId: "ChIJ_3SGRXsnHw0RC6NIrn-20O4" },
+  { id: 16, name: "Pastelaria Saloia", type: "Bakery", zone: "Norte", lat: 38.9661, lng: -9.418112, facing: 280, elevated: false, rating: 4.8, cat: "cafe", tags: ["pastry"], placeId: "ChIJs1R-pg4nHw0Rp3yg-JMkcRs" },
+  { id: 17, name: "La Pecora Nera", type: "Pizza", zone: "Navegantes", lat: 38.961443, lng: -9.417003, facing: 220, elevated: false, rating: 4.8, cat: "food", tags: ["pizza"], placeId: "ChIJs__5cV4nHw0RTrnyzvL2Zu8" },
+  { id: 18, name: "Bocca Pizzeria Romana", type: "Pizza", zone: "Largo dos Condes", lat: 38.963834, lng: -9.416687, facing: 200, elevated: false, rating: 4.8, cat: "food", tags: ["pizza"], placeId: "ChIJS3WempEnHw0RDYQ4QCPUaTg" },
+  { id: 19, name: "Mar das Latas", type: "Wine Bar", zone: "Old Town Cliffs", lat: 38.963436, lng: -9.418367, facing: 270, elevated: true, rating: 4.7, cat: "bar", tags: ["drinks", "wine", "sunset"], placeId: "ChIJG9RvYQwnHw0R0awMueZK0SQ" },
+  { id: 20, name: "Barzinho", type: "Bar", zone: "Ribamar", lat: 39.005213, lng: -9.41839, facing: 290, elevated: false, rating: 4.7, cat: "bar", tags: ["drinks"], placeId: "ChIJTyGmZYwmHw0REDI3gxrMkEU" },
+  { id: 21, name: "La Barraque", type: "Beach Bar", zone: "Praia do Sul", lat: 38.9543874, lng: -9.41437, facing: 270, elevated: false, rating: 4.7, cat: "bar", tags: ["drinks", "beach", "sunset"], placeId: "ChIJpYqbDMEnHw0R_HL2bDsi-4U" },
+  { id: 22, name: "The Capsule", type: "Specialty Coffee", zone: "Centro", lat: 38.9642398, lng: -9.4171034, facing: 220, elevated: false, rating: 4.7, cat: "cafe", tags: ["coffee"], placeId: "ChIJO97GaignHw0RL_xxVObtEzQ" },
+  { id: 23, name: "Dear Rose Café", type: "Café", zone: "Old Town", lat: 38.9639873, lng: -9.417612, facing: 240, elevated: false, rating: 4.7, cat: "cafe", tags: ["coffee"], placeId: "ChIJj00gne4nHw0Rn5kfNwsIgw4" },
+  { id: 24, name: "7 Desejos", type: "Bakery & Café", zone: "Ribeira d'Ilhas", lat: 38.986504, lng: -9.415634, facing: 290, elevated: false, rating: 4.7, cat: "cafe", tags: ["coffee", "pastry", "surf"], placeId: "ChIJP_y_y_4mHw0RDYshiZGF82A" },
+  { id: 25, name: "Secret Oven", type: "Pizza", zone: "Norte", lat: 38.9665074, lng: -9.4188563, facing: 280, elevated: false, rating: 4.7, cat: "food", tags: ["pizza"], placeId: "ChIJAfNI9nknHw0RWPOkZeAn9Jc" },
+  { id: 26, name: "Onegai Sushi", type: "Sushi", zone: "Santa Marta", lat: 38.9613365, lng: -9.4178797, facing: 240, elevated: false, rating: 4.7, cat: "food", tags: ["asian"], placeId: "ChIJ_YML8QsnHw0RS_wBKJBARQA" },
+  { id: 27, name: "Tasquinha do Patachão", type: "Tasca", zone: "Outskirts", lat: 38.9521733, lng: -9.4063482, facing: 210, elevated: false, rating: 4.7, cat: "food", tags: ["traditional"], placeId: "ChIJ42v8MBUnHw0Rpqg9fZEkBOs" },
+  { id: 28, name: "Mar d'Areia", type: "Seafood", zone: "Centro", lat: 38.9646273, lng: -9.4172503, facing: 220, elevated: false, rating: 4.6, cat: "food", tags: ["food"], placeId: "ChIJr4FT9QsnHw0RRD9DCcwk98Q" },
+  { id: 29, name: "Tik Tapas", type: "Tapas Bar", zone: "Centro", lat: 38.9622051, lng: -9.4177279, facing: 240, elevated: false, rating: 4.6, cat: "bar", tags: ["drinks", "food"], placeId: "ChIJwZ90mQwnHw0RQDPgWmxSRYY" },
+  { id: 30, name: "PRÉDIO", type: "Sushi & Rooftop", zone: "Centro", lat: 38.9636579, lng: -9.4167553, facing: 200, elevated: true, rating: 4.6, cat: "food", tags: ["asian"], placeId: "ChIJA-mUn7snHw0R0IaR6vBhJOU" },
+  { id: 31, name: "Balagan", type: "Restaurant & Café", zone: "Praia do Sul", lat: 38.9586809, lng: -9.415517, facing: 270, elevated: true, rating: 4.6, cat: "cafe", tags: ["food", "coffee", "sunset"], placeId: "ChIJJ8sswvEnHw0RwyCFK4eSBlA" },
+  { id: 32, name: "RIBBAÍ Ribeira d'Ilhas", type: "Beach Bar", zone: "Ribeira d'Ilhas", lat: 38.9879639, lng: -9.41813, facing: 290, elevated: false, rating: 4.6, cat: "bar", tags: ["drinks", "beach", "surf"], placeId: "ChIJg22y0FQnHw0RuOXfdsg162w" },
+  { id: 33, name: "Taberna Lebre", type: "Tasca", zone: "Centro", lat: 38.9637854, lng: -9.4173294, facing: 220, elevated: false, rating: 4.6, cat: "food", tags: ["traditional"], placeId: "ChIJ5aGeeAwnHw0RPJtctD6q7so" },
+  { id: 34, name: "GiG - Green is Good", type: "Brunch", zone: "Misericórdia", lat: 38.9653482, lng: -9.4183953, facing: 240, elevated: true, rating: 4.6, cat: "cafe", tags: ["brunch"], placeId: "ChIJscKdGQwnHw0RcpiL0XLQ7Oo" },
+  { id: 35, name: "Bar Motel", type: "Wine & Cocktail Bar", zone: "Rua do Mercado", lat: 38.9652101, lng: -9.416229, facing: 210, elevated: false, rating: 4.6, cat: "bar", tags: ["drinks", "wine"], placeId: "ChIJgW-0dWY1GQ0RBz5ELYY2u2Q" },
+  { id: 36, name: "Neptuno Bar", type: "Bar", zone: "Centro", lat: 38.962726, lng: -9.417183, facing: 220, elevated: false, rating: 4.6, cat: "bar", tags: ["drinks"], placeId: "ChIJb3ZdfQsnHw0RAOpTBAlgRXY" },
+  { id: 37, name: "Gadocha", type: "Bar & Café", zone: "Centro", lat: 38.9637336, lng: -9.4171464, facing: 220, elevated: false, rating: 4.6, cat: "bar", tags: ["drinks", "coffee"], placeId: "ChIJiWwQhwsnHw0R3KXIirc0zns" },
+  { id: 38, name: "Drop Food", type: "Beach Bar", zone: "Matadouro", lat: 38.9755462, lng: -9.419776, facing: 280, elevated: false, rating: 4.6, cat: "bar", tags: ["drinks", "beach"], placeId: "ChIJ0UKN9GQnHw0Rix35MOCjXl8" },
+  { id: 39, name: "O Pãozinho das Marias", type: "Bakery", zone: "Norte", lat: 38.967624, lng: -9.418901, facing: 280, elevated: false, rating: 4.6, cat: "cafe", tags: ["pastry"], placeId: "ChIJ5Tz64g4nHw0RpsCynCnSeRE" },
+  { id: 40, name: "Terço do Meio", type: "Sourdough Bakery", zone: "Outskirts", lat: 38.9604528, lng: -9.414595, facing: 210, elevated: false, rating: 4.6, cat: "cafe", tags: ["pastry"], placeId: "ChIJa_A9v7onHw0Rmm0pGwmxtF8" },
+  { id: 41, name: "Pizzeria Pão d'Alho", type: "Pizza", zone: "Navegantes", lat: 38.9605423, lng: -9.4151471, facing: 210, elevated: false, rating: 4.6, cat: "food", tags: ["pizza"], placeId: "ChIJFxCMzHQnHw0R3ydLJTOfUu0" },
+  { id: 42, name: "Pepe Verde", type: "Pizza", zone: "Centro", lat: 38.963284, lng: -9.417568, facing: 240, elevated: false, rating: 4.6, cat: "food", tags: ["pizza"], placeId: "ChIJ48DeFesnHw0RnoqM-j1_UxU" },
+  { id: 43, name: "Mar à Vista", type: "Seafood", zone: "Old Town", lat: 38.964196, lng: -9.41765, facing: 240, elevated: false, rating: 4.5, cat: "food", tags: ["food"], placeId: "ChIJEdJxEgwnHw0RLXR87iJ5g8Y" },
+  { id: 44, name: "COSTA FRIA", type: "Restaurant", zone: "Cliffs", lat: 38.9619626, lng: -9.4189398, facing: 270, elevated: true, rating: 4.5, cat: "food", tags: ["food", "sunset"], placeId: "ChIJf_CTQ4InHw0R4wIHh_9y-Og" },
+  { id: 45, name: "Brunch Me", type: "Brunch", zone: "Navegantes", lat: 38.9607989, lng: -9.4164693, facing: 210, elevated: false, rating: 4.5, cat: "cafe", tags: ["brunch"], placeId: "ChIJCQ5pCgwnHw0RgxbyATpUwa8" },
+  { id: 46, name: "Sunset Bamboo", type: "Café & Burritos", zone: "Centro", lat: 38.9630698, lng: -9.416783, facing: 200, elevated: false, rating: 4.5, cat: "cafe", tags: ["coffee", "sunset"], placeId: "ChIJq1Z6eQsnHw0RToKOAo96mCs" },
+  { id: 47, name: "Nalu Bowls", type: "Café & Bowls", zone: "Navegantes", lat: 38.9602941, lng: -9.4167272, facing: 200, elevated: false, rating: 4.5, cat: "cafe", tags: ["coffee"], placeId: "ChIJl15VrnQnHw0RNSIefH0O8Eg" },
+  { id: 48, name: "Jukebox Bar", type: "Cocktail Bar", zone: "Centro", lat: 38.962078, lng: -9.41753, facing: 240, elevated: false, rating: 4.5, cat: "bar", tags: ["drinks"], placeId: "ChIJ52JqnwwnHw0R14JJQA54OBQ" },
+  { id: 49, name: "Adega Bar 1987", type: "Bar", zone: "Old Town", lat: 38.9623073, lng: -9.418189, facing: 240, elevated: false, rating: 4.5, cat: "bar", tags: ["drinks"], placeId: "ChIJEbYxlwwnHw0RYHsQNsdje44" },
+  { id: 50, name: "Hemingway's", type: "Cocktail Bar", zone: "Centro", lat: 38.962051, lng: -9.417543, facing: 240, elevated: false, rating: 4.5, cat: "bar", tags: ["drinks"], placeId: "ChIJS1A2nwwnHw0R3hogv4fzJhQ" },
+  { id: 51, name: "Mar de Café", type: "Café", zone: "N247", lat: 38.9588697, lng: -9.4146418, facing: 210, elevated: false, rating: 4.5, cat: "cafe", tags: ["coffee"], placeId: "ChIJM7qf_XQnHw0RuCKIzqJpgOI" },
+  { id: 52, name: "Croissanteria da Vila", type: "Bakery", zone: "Largo dos Condes", lat: 38.9639867, lng: -9.4168586, facing: 200, elevated: false, rating: 4.5, cat: "cafe", tags: ["pastry"], placeId: "ChIJxwguozcnHw0RsVDr9pWoWm0" },
+  { id: 53, name: "Mizu", type: "Asian Fusion", zone: "Navegantes", lat: 38.961425, lng: -9.416513, facing: 200, elevated: false, rating: 4.5, cat: "food", tags: ["asian"], placeId: "ChIJL7tql84nHw0RLWIBAGgh3KA" },
+  { id: 54, name: "Tasca da Fonte Boa", type: "Tasca", zone: "Outskirts", lat: 38.972862, lng: -9.397301, facing: 210, elevated: false, rating: 4.5, cat: "food", tags: ["traditional"], placeId: "ChIJL-NzkpcnHw0RVX4ZcmliTnk" },
+  { id: 55, name: "Tasquinha do Joy", type: "Tasca", zone: "Old Town", lat: 38.9645637, lng: -9.4178599, facing: 240, elevated: false, rating: 4.4, cat: "food", tags: ["traditional"], placeId: "ChIJCd8DcAwnHw0RmaMMf0BoicQ" },
+  { id: 56, name: "Esplanada Furnas", type: "Seafood", zone: "Furnas", lat: 38.9614111, lng: -9.4196764, facing: 270, elevated: true, rating: 4.4, cat: "food", tags: ["food"], placeId: "ChIJ5VLY2wwnHw0RP_uRJQ5YzTM" },
+  { id: 57, name: "A Panela", type: "Restaurant", zone: "Santa Marta", lat: 38.9613174, lng: -9.418036, facing: 240, elevated: false, rating: 4.4, cat: "food", tags: ["food"], placeId: "ChIJh5oKsAwnHw0RUafE1GF-OuA" },
+  { id: 58, name: "Uni Sushi", type: "Sushi", zone: "Largo dos Condes", lat: 38.9638889, lng: -9.4169444, facing: 200, elevated: false, rating: 4.4, cat: "food", tags: ["asian"], placeId: "ChIJHUQ5hgsnHw0RBlUT3qdEdRE" },
+  { id: 59, name: "7Janelas Brewery", type: "Brewpub", zone: "Centro", lat: 38.9642628, lng: -9.4173653, facing: 220, elevated: false, rating: 4.4, cat: "food", tags: ["craft beer"], placeId: "ChIJbatydgwnHw0RUo9z6hCz8dY" },
+  { id: 60, name: "Ouriço Terrace", type: "Bar & Club", zone: "Pescadores", lat: 38.9623784, lng: -9.418625, facing: 270, elevated: true, rating: 4.4, cat: "bar", tags: ["drinks"], placeId: "ChIJ00jUNp8nHw0RU_n-Kf3yAXg" },
+  { id: 61, name: "Casa da Fernanda", type: "Café & Bakery", zone: "Pescadores", lat: 38.964687, lng: -9.417883, facing: 270, elevated: false, rating: 4.4, cat: "cafe", tags: ["coffee", "pastry"], placeId: "ChIJpS1lDQwnHw0RE4KU4OqKljY" },
+  { id: 62, name: "Pastelaria 7", type: "Bakery & Café", zone: "São Sebastião", lat: 38.9695555, lng: -9.419473, facing: 260, elevated: false, rating: 4.4, cat: "cafe", tags: ["coffee", "pastry"], placeId: "ChIJ6UHLcg8nHw0RbL--XaXLZeo" },
+  { id: 63, name: "Pedra Dura", type: "Restaurant", zone: "Centro", lat: 38.962165, lng: -9.416387, facing: 210, elevated: false, rating: 4.3, cat: "food", tags: ["food"], placeId: "ChIJQ3LMaQsnHw0RZWwPO1KPN_8" },
+  { id: 64, name: "Pão da Vila 2", type: "Bakery", zone: "Norte", lat: 38.9684819, lng: -9.4177512, facing: 280, elevated: false, rating: 4.3, cat: "cafe", tags: ["pastry"], placeId: "ChIJG5zQKQ8nHw0RiS-m6Sq8RTM" },
+  { id: 65, name: "Ti Matilde", type: "Seafood", zone: "Praia do Norte", lat: 38.96933, lng: -9.41988, facing: 270, elevated: false, rating: 4.2, cat: "food", tags: ["food", "sunset"], placeId: "ChIJtQEmCw8nHw0R1OfHzHsmaic" },
+  { id: 66, name: "Tubo Bar", type: "Bar", zone: "Old Town", lat: 38.9638904, lng: -9.4173783, facing: 220, elevated: false, rating: 4.2, cat: "bar", tags: ["drinks"], placeId: "ChIJrYA7eAwnHw0RQhRha7phF2s" },
+  { id: 67, name: "Algodio Beach Club", type: "Beach Bar", zone: "Praia do Norte", lat: 38.9675258, lng: -9.4199031, facing: 270, elevated: false, rating: 4.2, cat: "bar", tags: ["drinks", "beach", "sunset"], placeId: "ChIJg_9h-Q4nHw0RJ-iopBF1088" },
+  { id: 68, name: "O Pãozinho (Praça)", type: "Bakery & Café", zone: "Praça", lat: 38.9632401, lng: -9.416861, facing: 200, elevated: false, rating: 4.2, cat: "cafe", tags: ["coffee", "pastry"], placeId: "ChIJHZ7EeAsnHw0R2IFjYsl4oFA" },
+  { id: 69, name: "Pão da Vila", type: "Bakery & Café", zone: "Praça", lat: 38.9633891, lng: -9.4170239, facing: 220, elevated: false, rating: 4.2, cat: "cafe", tags: ["coffee", "pastry"], placeId: "ChIJrV1JCV0nHw0R_CNWM8kq_vg" },
+  { id: 70, name: "Gota d'Álcool", type: "Beach Bar", zone: "São Julião", lat: 38.9327963, lng: -9.4192322, facing: 280, elevated: false, rating: 4.1, cat: "bar", tags: ["drinks", "beach"], placeId: "ChIJF0VORYTYHg0RnXMf117PENw" },
+  { id: 71, name: "Lucky Star", type: "Asian / Sushi", zone: "Navegantes", lat: 38.9614409, lng: -9.4157371, facing: 210, elevated: false, rating: 4.1, cat: "food", tags: ["asian"], placeId: "ChIJsRYyZMHXHg0Re2lckgd96RM" },
+  { id: 72, name: "HOWM", type: "Ramen & Asian", zone: "Outskirts", lat: 38.965117, lng: -9.414591, facing: 210, elevated: false, rating: 4.1, cat: "food", tags: ["asian"], placeId: "ChIJnTBBG7cnHw0RgyJKADO-kK8" },
+  { id: 73, name: "Indigo", type: "Beach Restaurant", zone: "Foz do Lizandro", lat: 38.9424765, lng: -9.414745, facing: 260, elevated: false, rating: 4.0, cat: "food", tags: ["food", "beach"], placeId: "ChIJU6YPO4EnHw0RnzN0sREV_wk" },
+  { id: 74, name: "Pão da Vila Central", type: "Bakery & Brunch", zone: "Praça", lat: 38.963545, lng: -9.417239, facing: 220, elevated: false, rating: 4.0, cat: "cafe", tags: ["pastry", "brunch"], placeId: "ChIJlzRmInwnHw0RWR8JFlaawHE" },
+  { id: 75, name: "Sebastião Bar", type: "Beach Bar", zone: "São Sebastião", lat: 38.9728583, lng: -9.4197101, facing: 260, elevated: false, rating: 3.6, cat: "bar", tags: ["drinks", "beach"], placeId: "ChIJW8HLqAUnHw0RidCW_i7Kt88" },
 ];
 
 // ============================================================
@@ -438,7 +490,7 @@ function VenueCard({ venue, scoreData, isSelected, onClick }) {
             <h3 className="text-sm font-medium text-stone-200 truncate">{venue.name}</h3>
           </div>
           <p className="text-[10px] uppercase tracking-wider text-stone-500 ml-4">
-            {venue.type} · {venue.zone}
+            {venue.type} · {venue.zone}{venue.rating ? ` · ⭐ ${venue.rating}` : ""}
             {shadowPenalty > 0.3 && <span className="text-red-400/60 ml-1">· 🏢 shadowed</span>}
             {shadowPenalty > 0 && shadowPenalty <= 0.3 && <span className="text-yellow-500/40 ml-1">· partial shadow</span>}
           </p>
@@ -450,7 +502,7 @@ function VenueCard({ venue, scoreData, isSelected, onClick }) {
       </div>
       {isSelected && (
         <div className="mt-3 ml-4">
-          <p className="text-xs text-stone-400 leading-relaxed mb-2">{venue.description}</p>
+          <p className="text-xs text-stone-400 leading-relaxed mb-2">{venue.type} in {venue.zone}{venue.rating ? ` — rated ${venue.rating}/5 on Google` : ""}</p>
           <div className="flex flex-wrap gap-1.5 mb-3">
             {venue.tags.map((t) => (
               <span key={t} className="text-[9px] px-2 py-0.5 rounded-full bg-white/[0.04] text-stone-500 uppercase tracking-wider">{t}</span>
@@ -530,9 +582,12 @@ export default function App() {
   const sortedVenues = useMemo(() => {
     let f = [...VENUES];
     if (filter === "sunlit") f = f.filter((v) => scores[v.id]?.score > 0.4);
-    if (filter === "rooftop") f = f.filter((v) => v.elevated);
-    if (filter === "bars") f = f.filter((v) => v.type.toLowerCase().includes("bar") || v.type.toLowerCase().includes("cocktail"));
-    if (filter === "food") f = f.filter((v) => v.type.toLowerCase().includes("restaurant") || v.type.toLowerCase().includes("seafood") || v.type.toLowerCase().includes("tapas") || v.type.toLowerCase().includes("sushi") || v.tags.includes("food"));
+    if (filter === "bars") f = f.filter((v) => v.cat === "bar");
+    if (filter === "food") f = f.filter((v) => v.cat === "food");
+    if (filter === "cafe") f = f.filter((v) => v.cat === "cafe");
+    if (filter === "beach") f = f.filter((v) => v.tags.includes("beach") || v.tags.includes("sunset"));
+    if (filter === "pizza") f = f.filter((v) => v.tags.includes("pizza"));
+    if (filter === "tasca") f = f.filter((v) => v.tags.includes("traditional"));
     return f.sort((a, b) => (scores[b.id]?.score || 0) - (scores[a.id]?.score || 0));
   }, [scores, filter]);
 
@@ -546,7 +601,7 @@ export default function App() {
             Ericeira <span style={{ color: "#e8a840" }}>Golden Hour</span>
           </h1>
           <p className="text-[10px] uppercase tracking-[0.2em] text-stone-400 mt-0.5 drop-shadow">
-            {VENUES.length} spots · real building shadows · tap for directions
+            {VENUES.length} spots scraped from Google Maps · building shadows · tap for directions
           </p>
         </div>
         {/* Building data badge */}
@@ -587,7 +642,7 @@ export default function App() {
 
         {/* Filters */}
         <div className="flex-shrink-0 flex gap-1.5 px-4 py-2.5 overflow-x-auto">
-          {[{ key: "all", label: "All" }, { key: "sunlit", label: "Sunlit" }, { key: "rooftop", label: "Rooftops" }, { key: "bars", label: "Bars" }, { key: "food", label: "Food" }].map(({ key, label }) => (
+          {[{ key: "all", label: "All" }, { key: "sunlit", label: "☀️ Sunlit" }, { key: "food", label: "Food" }, { key: "bars", label: "Bars" }, { key: "cafe", label: "Coffee" }, { key: "beach", label: "Beach" }, { key: "pizza", label: "Pizza" }, { key: "tasca", label: "Tasca" }].map(({ key, label }) => (
             <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${filter === key ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>
               {label}
               {key === "sunlit" && <span className="ml-1 text-amber-500">{VENUES.filter((v) => scores[v.id]?.score > 0.4).length}</span>}
