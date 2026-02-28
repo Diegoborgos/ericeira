@@ -6,7 +6,7 @@ const ERICEIRA_LNG = -9.4178;
 // ============================================================
 // VENUE DATA — Google Places verified coordinates
 // ============================================================
-// 75 venues — all scraped from Google Places
+// 87 venues — all scraped from Google Places
 const VENUES = [
   { id: 1, name: "Dom Bilas", type: "Brewpub", zone: "Old Town", lat: 38.964599, lng: -9.417891, facing: 240, elevated: false, rating: 5.0, cat: "food", tags: ["craft beer"], placeId: "ChIJNb-5RwAnHw0R-8yIL0DdJ7w" },
   { id: 2, name: "LAB", type: "Restaurant", zone: "Centro", lat: 38.9651642, lng: -9.4170493, facing: 220, elevated: false, rating: 4.9, cat: "food", tags: ["food"], placeId: "ChIJI_wFPwAnHw0RN-3EU4Szlyw" },
@@ -83,6 +83,23 @@ const VENUES = [
   { id: 73, name: "Indigo", type: "Beach Restaurant", zone: "Foz do Lizandro", lat: 38.9424765, lng: -9.414745, facing: 260, elevated: false, rating: 4.0, cat: "food", tags: ["food", "beach"], placeId: "ChIJU6YPO4EnHw0RnzN0sREV_wk" },
   { id: 74, name: "Pão da Vila Central", type: "Bakery & Brunch", zone: "Praça", lat: 38.963545, lng: -9.417239, facing: 220, elevated: false, rating: 4.0, cat: "cafe", tags: ["pastry", "brunch"], placeId: "ChIJlzRmInwnHw0RWR8JFlaawHE" },
   { id: 75, name: "Sebastião Bar", type: "Beach Bar", zone: "São Sebastião", lat: 38.9728583, lng: -9.4197101, facing: 260, elevated: false, rating: 3.6, cat: "bar", tags: ["drinks", "beach"], placeId: "ChIJW8HLqAUnHw0RidCW_i7Kt88" },
+  // — Talay —
+  { id: 76, name: "Talay Thai House", type: "Thai", zone: "São Sebastião", lat: 38.9691968, lng: -9.4193783, facing: 270, elevated: false, rating: 4.5, cat: "food", tags: ["asian"], placeId: "ChIJtVWYw2MnHw0RCYSBpImK0hU" },
+  // — Foz do Lizandro —
+  { id: 77, name: "Lizandro Surf Restaurant", type: "Beach Bar", zone: "Foz do Lizandro", lat: 38.942030, lng: -9.414542, facing: 260, elevated: false, rating: 4.6, cat: "bar", tags: ["drinks", "beach", "surf"], placeId: "ChIJ3zH_O7gnHw0RPgmZVhagRVo" },
+  { id: 78, name: "Naonda", type: "Restaurant & Bar", zone: "Foz do Lizandro", lat: 38.941699, lng: -9.414021, facing: 260, elevated: false, rating: 4.1, cat: "food", tags: ["food", "beach", "surf"], placeId: "ChIJQ7oDyH8nHw0RmxiweuSXhkw" },
+  // — Ribamar —
+  { id: 79, name: "Marisqueira de Ribamar", type: "Seafood", zone: "Ribamar", lat: 39.0058784, lng: -9.4203081, facing: 280, elevated: false, rating: 4.5, cat: "food", tags: ["food", "traditional"], placeId: "ChIJw7tGyo0mHw0R9wH1fmrnXSE" },
+  { id: 80, name: "O Pescador", type: "Seafood", zone: "Ribamar", lat: 39.0060282, lng: -9.4183032, facing: 280, elevated: false, rating: 4.6, cat: "food", tags: ["food", "traditional"], placeId: "ChIJmcBzFIwmHw0RXY-2iT1E0Jk" },
+  { id: 81, name: "Café Vitória", type: "Restaurant & Café", zone: "Ribamar", lat: 39.0052389, lng: -9.4188748, facing: 280, elevated: false, rating: 4.4, cat: "food", tags: ["food", "coffee", "traditional"], placeId: "ChIJV_vPxmg3Hw0R9fhrfwTIYq4" },
+  { id: 82, name: "O Spot", type: "Café & Brunch", zone: "Ribamar", lat: 39.0070814, lng: -9.4190229, facing: 280, elevated: false, rating: 4.5, cat: "cafe", tags: ["coffee", "brunch"], placeId: "ChIJ0fDA3pYnHw0RjELQsoaTS1c" },
+  { id: 83, name: "O Rochedo", type: "Seafood", zone: "Ribamar", lat: 39.0065208, lng: -9.4187734, facing: 280, elevated: false, rating: 4.6, cat: "food", tags: ["food", "traditional"], placeId: "ChIJNy5nGowmHw0RQMpZZf-WSPY" },
+  { id: 84, name: "Originale Pasta", type: "Italian", zone: "Ribamar", lat: 39.003107, lng: -9.418258, facing: 280, elevated: false, rating: 4.9, cat: "food", tags: ["pizza"], placeId: "ChIJW2jAagAnHw0RujUuDEPkkzM" },
+  // — Santo Isidoro —
+  { id: 85, name: "Vizinha", type: "Café & Farm Shop", zone: "Santo Isidoro", lat: 38.9936067, lng: -9.3968182, facing: 210, elevated: false, rating: 4.7, cat: "cafe", tags: ["coffee"], placeId: "ChIJvbM2C7AnHw0RHj1HWj3b_fA" },
+  { id: 86, name: "19 prás 2", type: "Tea House & Bakery", zone: "Santo Isidoro", lat: 38.9925873, lng: -9.3954352, facing: 210, elevated: false, rating: 5.0, cat: "cafe", tags: ["coffee", "pastry"], placeId: "ChIJeReu6rUnHw0RcEoX9kie4yM" },
+  // — Missing from Centro —
+  { id: 87, name: "Com Pinta", type: "Burger & Pizza", zone: "Centro", lat: 38.9621767, lng: -9.4165678, facing: 200, elevated: false, rating: 4.4, cat: "food", tags: ["food"], placeId: "ChIJjy3oZwsnHw0RoKwSou61Em0" },
 ];
 
 // ============================================================
@@ -422,17 +439,14 @@ function MapView({ venues, scores, selectedId, onSelect, buildings, sun }) {
       const shadowNote = shadowPenalty > 0.3 ? `<div style="font-size:10px;color:#c44;margin-bottom:6px;">🏢 Building shadow detected (${Math.round(shadowPenalty * 100)}% blocked)</div>` : shadowPenalty > 0 ? `<div style="font-size:10px;color:#886;margin-bottom:6px;">🏢 Light shadow (${Math.round(shadowPenalty * 100)}% blocked)</div>` : "";
 
       marker.bindPopup(
-        `<div style="font-family:-apple-system,system-ui,sans-serif;min-width:180px;padding:4px 0;">
+        `<div style="font-family:-apple-system,system-ui,sans-serif;min-width:160px;padding:4px 0;">
           <div style="font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:1px;">${v.name}</div>
-          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">${v.type} · ${v.zone}</div>
-          <div style="font-size:13px;font-weight:500;margin-bottom:4px;color:${color};">${statusText}</div>
+          <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">${v.type} · ${v.zone}</div>
+          <div style="font-size:13px;font-weight:500;margin-bottom:6px;color:${color};">${statusText}</div>
           ${shadowNote}
-          <div style="display:flex;gap:6px;">
-            <a href="${getDirectionsLink(v)}" target="_blank" rel="noopener" style="flex:1;text-align:center;font-size:12px;font-weight:600;color:#fff;background:#e8a840;text-decoration:none;padding:8px 12px;border-radius:8px;">🚶 Walk There</a>
-            <a href="${getMapsLink(v)}" target="_blank" rel="noopener" style="flex:1;text-align:center;font-size:12px;font-weight:500;color:#666;background:#f0f0f0;text-decoration:none;padding:8px 12px;border-radius:8px;">📍 Maps</a>
-          </div>
+          <a href="${getMapsLink(v)}" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:12px;font-weight:600;color:#fff;background:#e8a840;text-decoration:none;padding:8px 12px;border-radius:8px;">Open in Google Maps</a>
         </div>`,
-        { className: "custom-popup", maxWidth: 250 }
+        { className: "custom-popup", maxWidth: 220 }
       );
 
       if (isSel) { marker.openPopup(); map.panTo([v.lat, v.lng], { animate: true }); }
@@ -563,65 +577,35 @@ function SunTimeline({ venue, buildings, currentMinutes, onTimeClick }) {
 function VenueCard({ venue, scoreData, isSelected, onClick, buildings, currentMinutes, onTimeClick }) {
   const { score, shadowPenalty, baseScore } = scoreData;
   const pct = Math.round(score * 100);
-  const st = score > 0.55 ? "full" : score > 0.2 ? "partial" : "shade";
-  const label = st === "full" ? "Full Sun" : st === "partial" ? "Partial" : "Shade";
-  const col = st === "full" ? "#e8a840" : st === "partial" ? "#8b6a2f" : "rgba(240,232,216,0.25)";
+  const col = score > 0.55 ? "#e8a840" : score > 0.2 ? "#8b6a2f" : "rgba(240,232,216,0.25)";
 
   return (
-    <button onClick={onClick} className={`w-full text-left transition-all duration-200 rounded-xl border p-3.5 ${isSelected ? "border-amber-500/40 bg-amber-900/15" : "border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.08]"}`}>
-      <div className="flex items-start justify-between gap-3">
+    <button onClick={onClick} className={`w-full text-left transition-all duration-200 rounded-xl border px-3 py-2.5 ${isSelected ? "border-amber-500/40 bg-amber-900/15" : "border-white/[0.04] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.08]"}`}>
+      <div className="flex items-center justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: col, boxShadow: st === "full" ? `0 0 8px ${col}60` : "none" }} />
-            <h3 className="text-sm font-medium text-stone-200 truncate">{venue.name}</h3>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: col, boxShadow: score > 0.55 ? `0 0 8px ${col}60` : "none" }} />
+            <h3 className="text-[13px] font-medium text-stone-200 truncate">{venue.name}</h3>
+            {venue.rating >= 4.7 && <span className="text-[9px] text-amber-500/60">★</span>}
           </div>
-          <p className="text-[10px] uppercase tracking-wider text-stone-500 ml-4">
-            {venue.type} · {venue.zone}{venue.rating ? ` · ⭐ ${venue.rating}` : ""}
-            {shadowPenalty > 0.3 && <span className="text-red-400/60 ml-1">· 🏢 shadowed</span>}
-            {shadowPenalty > 0 && shadowPenalty <= 0.3 && <span className="text-yellow-500/40 ml-1">· partial shadow</span>}
-          </p>
+          <p className="text-[10px] text-stone-500 ml-4 truncate">{venue.type} · {venue.zone}</p>
         </div>
-        <div className="text-right flex-shrink-0">
-          <div className="text-lg font-light" style={{ color: col }}>{pct}%</div>
-          <div className="text-[9px] uppercase tracking-wider" style={{ color: col }}>{label}</div>
+        <div className="text-right flex-shrink-0 min-w-[40px]">
+          <div className="text-base font-light" style={{ color: col }}>{pct}%</div>
         </div>
       </div>
       {isSelected && (
-        <div className="mt-3 ml-4">
-          <p className="text-xs text-stone-400 leading-relaxed mb-2">{venue.type} in {venue.zone}{venue.rating ? ` — rated ${venue.rating}/5 on Google` : ""}</p>
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {venue.tags.map((t) => (
-              <span key={t} className="text-[9px] px-2 py-0.5 rounded-full bg-white/[0.04] text-stone-500 uppercase tracking-wider">{t}</span>
-            ))}
-          </div>
-          {/* Sun Timeline — the key feature: drag to find best time */}
+        <div className="mt-2.5 ml-4">
+          {/* Sun Timeline */}
           <SunTimeline venue={venue} buildings={buildings} currentMinutes={currentMinutes} onTimeClick={onTimeClick} />
-          {/* Sun bar with shadow indicator */}
-          <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden mb-1 relative">
-            <div className="h-full rounded-full transition-all duration-500" style={{
-              width: `${Math.round(baseScore * 100)}%`,
-              background: st === "full" ? "linear-gradient(90deg,#e8a840,#f4c362)" : st === "partial" ? "#8b6a2f" : "rgba(240,232,216,0.15)",
-              opacity: 0.3,
-            }} />
-            <div className="h-full rounded-full transition-all duration-500 absolute top-0 left-0" style={{
-              width: `${pct}%`,
-              background: st === "full" ? "linear-gradient(90deg,#e8a840,#f4c362)" : st === "partial" ? "#8b6a2f" : "rgba(240,232,216,0.15)",
-            }} />
-          </div>
-          {shadowPenalty > 0 && (
-            <p className="text-[9px] text-stone-600 mb-3">
-              🏢 {Math.round(shadowPenalty * 100)}% shadow from nearby buildings
-              {venue.elevated && " (reduced — rooftop)"}
-            </p>
+          {/* Shadow note — only if significant */}
+          {shadowPenalty > 0.3 && (
+            <p className="text-[9px] text-stone-600 mb-2">🏢 {Math.round(shadowPenalty * 100)}% building shadow{venue.elevated ? " (reduced — rooftop)" : ""}</p>
           )}
-          <div className="flex gap-2">
-            <a href={getDirectionsLink(venue)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-1 text-center text-xs font-medium px-3 py-2.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 transition-colors">
-              🚶 Walk There
-            </a>
-            <a href={getMapsLink(venue)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-1 text-center text-xs font-medium px-3 py-2.5 rounded-lg bg-white/[0.04] text-stone-400 border border-white/[0.06] hover:bg-white/[0.08] transition-colors">
-              📍 View on Maps
-            </a>
-          </div>
+          {/* Single CTA — Google Maps */}
+          <a href={getMapsLink(venue)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center justify-center gap-1.5 w-full text-xs font-medium px-3 py-2 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/25 hover:bg-amber-500/25 transition-colors">
+            Open in Google Maps
+          </a>
         </div>
       )}
     </button>
@@ -692,12 +676,6 @@ export default function App() {
             the sun guide to Ericeira
           </p>
         </div>
-        {/* Building data badge */}
-        <div className="absolute bottom-4 left-4 z-[500]">
-          <div className={`text-[9px] uppercase tracking-wider px-2.5 py-1 rounded-full backdrop-blur ${buildingSource === "osm" ? "bg-green-500/10 text-green-400/70 border border-green-500/20" : "bg-amber-500/10 text-amber-400/60 border border-amber-500/20"}`}>
-            {buildingSource === "osm" ? `🏢 ${buildings.length} OSM buildings loaded` : `🏢 ${buildings.length} fallback buildings`}
-          </div>
-        </div>
         <button onClick={() => setShowPanel(!showPanel)} className="lg:hidden absolute top-4 right-4 w-10 h-10 rounded-lg bg-black/70 backdrop-blur border border-white/10 flex items-center justify-center text-stone-300 z-[500]">
           {showPanel ? "✕" : "☰"}
         </button>
@@ -706,43 +684,38 @@ export default function App() {
       {/* PANEL */}
       <div className={`${showPanel ? "flex" : "hidden"} lg:flex flex-col w-full lg:w-[360px] xl:w-[400px] bg-[#0a0a0f] border-t lg:border-t-0 lg:border-l border-white/[0.06] overflow-hidden flex-shrink-0 max-h-[60vh] lg:max-h-none`}>
         {/* Time control */}
-        <div className="flex-shrink-0 px-4 pt-4 pb-3 border-b border-white/[0.04]">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <div className="text-3xl font-light" style={{ color: sun.golden > 0.3 ? "#e8a840" : sun.isDay ? "#c8c0b0" : "#555" }}>
-                {formatTime(timeMinutes / 60)}
-              </div>
-              <div className="text-[10px] uppercase tracking-[0.15em] mt-0.5" style={{ color: sun.golden > 0.3 ? "rgba(232,168,64,0.7)" : "rgba(160,150,140,0.4)" }}>
-                {getTimeLabel(sun)}
-              </div>
+        <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-white/[0.04]">
+          <div className="flex items-baseline justify-between mb-1.5">
+            <div className="text-2xl font-light" style={{ color: sun.golden > 0.3 ? "#e8a840" : sun.isDay ? "#c8c0b0" : "#555" }}>
+              {formatTime(timeMinutes / 60)}
             </div>
-            <SunDial sun={sun} />
+            <div className="text-[10px] uppercase tracking-wider" style={{ color: sun.golden > 0.3 ? "rgba(232,168,64,0.7)" : "rgba(160,150,140,0.4)" }}>
+              {getTimeLabel(sun)}
+            </div>
           </div>
-          <div className="relative mt-1">
+          <div className="relative">
             <div className="absolute inset-0 h-1 top-1/2 -translate-y-1/2 rounded-full" style={{ background: "linear-gradient(to right, #1a1a2e 0%, #2a2040 15%, #e8a840 40%, #f4c362 50%, #e8a840 65%, #8b4513 80%, #1a1a2e 100%)", opacity: 0.4 }} />
             <input type="range" min={Math.floor(sunrise * 60) - 30} max={Math.ceil(sunset * 60) + 30} value={timeMinutes} onChange={(e) => setTimeMinutes(Number(e.target.value))} className="w-full relative z-10 bg-transparent cursor-pointer h-6" style={{ WebkitAppearance: "none", appearance: "none" }} />
             <style>{`input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#e8a840;box-shadow:0 0 16px rgba(232,168,64,0.5);border:2px solid #f4d48a;cursor:grab}input[type="range"]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#e8a840;box-shadow:0 0 16px rgba(232,168,64,0.5);border:2px solid #f4d48a;cursor:grab}.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 8px 30px rgba(0,0,0,0.3)!important}.leaflet-popup-tip{display:none!important}`}</style>
-            <div className="flex justify-between text-[9px] text-stone-600 mt-0.5 px-1">
-              <span>{formatTime(sunrise)}</span><span>12:00 PM</span><span>{formatTime(sunset)}</span>
+            <div className="flex justify-between text-[9px] text-stone-600 -mt-0.5 px-1">
+              <span>{formatTime(sunrise)}</span><span>{formatTime(sunset)}</span>
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="flex-shrink-0 flex gap-1.5 px-4 py-2.5 overflow-x-auto">
-          {[{ key: "all", label: "All" }, { key: "sunlit", label: "☀️ Sunlit" }, { key: "food", label: "Food" }, { key: "bars", label: "Bars" }, { key: "cafe", label: "Coffee" }, { key: "beach", label: "Beach" }, { key: "pizza", label: "Pizza" }, { key: "tasca", label: "Tasca" }].map(({ key, label }) => (
-            <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-full whitespace-nowrap transition-all ${filter === key ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>
+        <div className="flex-shrink-0 flex gap-1 px-3 py-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+          {[{ key: "all", label: "All" }, { key: "sunlit", label: "☀️ Sun" }, { key: "food", label: "Food" }, { key: "bars", label: "Bars" }, { key: "cafe", label: "Coffee" }, { key: "beach", label: "Beach" }, { key: "pizza", label: "Pizza" }, { key: "tasca", label: "Tasca" }].map(({ key, label }) => (
+            <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap transition-all ${filter === key ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>
               {label}
-              {key === "sunlit" && <span className="ml-1 text-amber-500">{VENUES.filter((v) => scores[v.id]?.score > 0.4).length}</span>}
             </button>
           ))}
         </div>
 
         {/* Venue list */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1.5" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(232,168,64,0.15) transparent" }}>
+        <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(232,168,64,0.15) transparent" }}>
           {sortedVenues.length === 0 ? (
             <div className="text-center py-12 text-stone-600">
-              <div className="text-2xl mb-2">◌</div>
               <p className="text-xs">No venues match this filter</p>
             </div>
           ) : (
@@ -759,12 +732,6 @@ export default function App() {
               />
             ))
           )}
-        </div>
-
-        <div className="flex-shrink-0 px-4 py-2.5 border-t border-white/[0.04]">
-          <p className="text-[9px] text-stone-600 text-center">
-            3D shadow engine · {buildingSource === "osm" ? `${buildings.length} real buildings` : "fallback data"} · tap venue → walk there
-          </p>
         </div>
       </div>
     </div>
