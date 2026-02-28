@@ -338,7 +338,7 @@ function getVenueSunScore(venue, sun, buildings) {
 // ============================================================
 // HELPERS
 // ============================================================
-function formatTime(h) { const hr = Math.floor(h); const m = Math.round((h - hr) * 60); const p = hr >= 12 ? "PM" : "AM"; const h12 = hr > 12 ? hr - 12 : hr === 0 ? 12 : hr; return `${h12}:${String(m).padStart(2, "0")} ${p}`; }
+function formatTime(h) { let hr = Math.floor(h) % 24; if (hr < 0) hr += 24; const m = Math.round((h - Math.floor(h)) * 60) % 60; const p = hr >= 12 ? "PM" : "AM"; const h12 = hr > 12 ? hr - 12 : hr === 0 ? 12 : hr; return `${h12}:${String(Math.abs(m)).padStart(2, "0")} ${p}`; }
 function getTimeLabel(sun) { if (sun.golden > 0.3) return "Golden Hour"; if (!sun.isDay) return "Night"; if (sun.altitude < 20) return sun.azimuth < 180 ? "Early Morning" : "Late Afternoon"; return sun.azimuth < 180 ? "Morning" : "Afternoon"; }
 function getWeatherIcon(code, cloud) {
   // WMO weather codes: https://open-meteo.com/en/docs
@@ -532,6 +532,7 @@ function computeDayTimeline(venue, buildings, date, weatherData) {
   const sunsetH = 12 + HA / 15;
   
   const cc = weatherData?.cloudCover || [];
+  const wTimes = weatherData?.times || [];
   const points = [];
   let peakScore = 0, peakTime = 12;
   for (let m = Math.floor(sunriseH * 60); m <= Math.ceil(sunsetH * 60); m += 10) {
@@ -539,13 +540,19 @@ function computeDayTimeline(venue, buildings, date, weatherData) {
     d.setHours(Math.floor(m / 60), m % 60, 0, 0);
     const sun = getSunPosition(d, ERICEIRA_LAT, ERICEIRA_LNG);
     let { score } = getVenueSunScore(venue, sun, buildings);
-    // Apply cloud cover for this hour
-    if (cc.length > 0) {
-      const hour = m / 60;
-      const hf = Math.floor(hour);
-      const hc = Math.min(23, hf + 1);
-      const frac = hour - hf;
-      const cloud = (cc[hf] || 0) * (1 - frac) + (cc[hc] || cc[hf] || 0) * frac;
+    // Apply cloud cover — look up from weather times array
+    if (cc.length > 0 && wTimes.length > 0) {
+      // Convert m (minutes in the day) to offset from today midnight
+      const todayMid = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const offsetMin = Math.floor((d - todayMid) / 60000);
+      // Find nearest weather data point
+      let i = 0;
+      while (i < wTimes.length - 1 && wTimes[i + 1] < offsetMin) i++;
+      let cloud = cc[i] || 0;
+      if (i < wTimes.length - 1 && wTimes[i + 1] > wTimes[i]) {
+        const frac = Math.max(0, Math.min(1, (offsetMin - wTimes[i]) / (wTimes[i + 1] - wTimes[i])));
+        cloud = cc[i] * (1 - frac) + cc[i + 1] * frac;
+      }
       score *= 1 - (cloud / 100) * 0.85;
     }
     points.push({ m, score });
@@ -659,13 +666,18 @@ function VenueCard({ venue, scoreData, isSelected, onClick, buildings, currentMi
 // MAIN APP
 // ============================================================
 export default function App() {
+  // Time is now an absolute offset in minutes from today 00:00
+  // Range: -720 (yesterday noon) to +2160 (tomorrow midnight)
+  // This lets user scrub from today's sunrise through tomorrow's sunset
   const now = new Date();
-  const [timeMinutes, setTimeMinutes] = useState(now.getHours() * 60 + now.getMinutes());
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const currentOffset = Math.floor((now - todayMidnight) / 60000); // minutes since midnight
+  const [timeOffset, setTimeOffset] = useState(currentOffset);
   const [selectedId, setSelectedId] = useState(null);
   const [filter, setFilter] = useState("all");
   const [buildings, setBuildings] = useState(FALLBACK_BUILDINGS);
   const [buildingSource, setBuildingSource] = useState("fallback");
-  const [weather, setWeather] = useState(null); // { cloudCover: [0-100 per hour], weatherCode: [per hour] }
+  const [weather, setWeather] = useState(null);
 
   // Fetch real OSM buildings on mount
   useEffect(() => {
@@ -677,49 +689,92 @@ export default function App() {
     });
   }, []);
 
-  // Fetch weather from Open-Meteo (free, no key)
+  // Fetch 3-day weather from Open-Meteo (yesterday + today + tomorrow)
   useEffect(() => {
-    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${ERICEIRA_LAT}&longitude=${ERICEIRA_LNG}&hourly=cloud_cover,weather_code&timezone=Europe/Lisbon&forecast_days=1`)
+    const yesterday = new Date(todayMidnight);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const tomorrow = new Date(todayMidnight);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const startDate = yesterday.toISOString().split("T")[0];
+    const endDate = tomorrow.toISOString().split("T")[0];
+    
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${ERICEIRA_LAT}&longitude=${ERICEIRA_LNG}&hourly=cloud_cover,weather_code&timezone=Europe/Lisbon&start_date=${startDate}&end_date=${endDate}`)
       .then(r => r.json())
       .then(data => {
         if (data?.hourly) {
+          // Parse ISO times to minute offsets from today midnight
+          const times = (data.hourly.time || []).map(t => {
+            const d = new Date(t);
+            return Math.floor((d - todayMidnight) / 60000);
+          });
           setWeather({
             cloudCover: data.hourly.cloud_cover || [],
             weatherCode: data.hourly.weather_code || [],
-            hours: data.hourly.time || [],
+            times, // minute offsets from today midnight
           });
         }
       })
-      .catch(() => {}); // Silently fail — app works without weather
+      .catch(() => {});
   }, []);
 
+  // Convert offset to Date
   const currentDate = useMemo(() => {
-    const d = new Date();
-    d.setHours(Math.floor(timeMinutes / 60), timeMinutes % 60, 0, 0);
-    return d;
-  }, [timeMinutes]);
+    return new Date(todayMidnight.getTime() + timeOffset * 60000);
+  }, [timeOffset]);
+
+  // Which day label
+  const dayLabel = useMemo(() => {
+    const d = currentDate.getDate();
+    const today = todayMidnight.getDate();
+    if (d === today) return "Today";
+    const tomorrow = new Date(todayMidnight);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (d === tomorrow.getDate()) return "Tomorrow";
+    return "Yesterday";
+  }, [currentDate]);
 
   const sun = useMemo(() => getSunPosition(currentDate, ERICEIRA_LAT, ERICEIRA_LNG), [currentDate]);
   const { sunrise, sunset } = useMemo(() => getSunrise(currentDate, ERICEIRA_LAT), [currentDate]);
 
-  // Get cloud cover for current slider time (0-100, interpolated between hours)
-  const cloudCover = useMemo(() => {
-    if (!weather?.cloudCover?.length) return null;
-    const hour = timeMinutes / 60;
-    const hourFloor = Math.floor(hour);
-    const hourCeil = Math.min(23, hourFloor + 1);
-    const frac = hour - hourFloor;
-    const cc = weather.cloudCover;
-    if (hourFloor >= cc.length) return cc[cc.length - 1] || 0;
-    return cc[hourFloor] * (1 - frac) + (cc[hourCeil] || cc[hourFloor]) * frac;
-  }, [weather, timeMinutes]);
+  // Slider range: today sunrise-30 through tomorrow sunset+30
+  const todaySunrise = useMemo(() => {
+    const { sunrise: sr } = getSunrise(new Date(todayMidnight), ERICEIRA_LAT);
+    return Math.floor(sr * 60) - 30;
+  }, []);
+  const tomorrowSunset = useMemo(() => {
+    const tom = new Date(todayMidnight);
+    tom.setDate(tom.getDate() + 1);
+    const { sunset: ss } = getSunrise(tom, ERICEIRA_LAT);
+    return 1440 + Math.ceil(ss * 60) + 30; // 1440 = tomorrow offset
+  }, []);
 
-  // Weather code for current hour
+  // Get cloud cover for current time offset (interpolated from weather data)
+  const cloudCover = useMemo(() => {
+    if (!weather?.cloudCover?.length || !weather.times?.length) return null;
+    const t = timeOffset;
+    const times = weather.times;
+    const cc = weather.cloudCover;
+    // Find surrounding data points
+    let i = 0;
+    while (i < times.length - 1 && times[i + 1] < t) i++;
+    if (i >= times.length - 1) return cc[cc.length - 1] || 0;
+    if (times[i] >= t) return cc[i] || 0;
+    const frac = (t - times[i]) / (times[i + 1] - times[i]);
+    return cc[i] * (1 - frac) + cc[i + 1] * frac;
+  }, [weather, timeOffset]);
+
+  // Weather code for current time
   const currentWeatherCode = useMemo(() => {
-    if (!weather?.weatherCode?.length) return null;
-    const hour = Math.round(timeMinutes / 60);
-    return weather.weatherCode[Math.min(hour, weather.weatherCode.length - 1)];
-  }, [weather, timeMinutes]);
+    if (!weather?.weatherCode?.length || !weather.times?.length) return null;
+    const t = timeOffset;
+    const times = weather.times;
+    // Find nearest hour
+    let closest = 0;
+    for (let i = 1; i < times.length; i++) {
+      if (Math.abs(times[i] - t) < Math.abs(times[closest] - t)) closest = i;
+    }
+    return weather.weatherCode[closest];
+  }, [weather, timeOffset]);
 
   // Cloud multiplier: 0% cloud = 1.0, 100% cloud = 0.15
   const cloudMultiplier = cloudCover !== null ? 1 - (cloudCover / 100) * 0.85 : 1;
@@ -728,7 +783,6 @@ export default function App() {
     const s = {};
     VENUES.forEach((v) => {
       const raw = getVenueSunScore(v, sun, buildings);
-      // Apply cloud cover
       s[v.id] = {
         ...raw,
         score: raw.score * cloudMultiplier,
@@ -797,7 +851,10 @@ export default function App() {
           </div>
           <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-white/[0.04]">
             <div className="flex items-baseline justify-between mb-1.5">
-              <div className="text-2xl font-light" style={{ color: sun.golden > 0.3 ? "#e8a840" : sun.isDay ? "#c8c0b0" : "#555" }}>{formatTime(timeMinutes / 60)}</div>
+              <div className="flex items-baseline gap-2">
+                <div className="text-2xl font-light" style={{ color: sun.golden > 0.3 ? "#e8a840" : sun.isDay ? "#c8c0b0" : "#555" }}>{formatTime(timeOffset / 60)}</div>
+                <span className="text-[10px] uppercase tracking-wider text-stone-500">{dayLabel}</span>
+              </div>
               <div className="flex items-center gap-1.5">
                 {weather && <span className="text-sm">{getWeatherIcon(currentWeatherCode, cloudCover)}</span>}
                 <div className="text-[10px] uppercase tracking-wider" style={{ color: sun.golden > 0.3 ? "rgba(232,168,64,0.7)" : "rgba(160,150,140,0.4)" }}>
@@ -806,10 +863,12 @@ export default function App() {
               </div>
             </div>
             <div className="relative">
-              <div className="absolute inset-0 h-1 top-1/2 -translate-y-1/2 rounded-full" style={{ background: "linear-gradient(to right, #1a1a2e 0%, #2a2040 15%, #e8a840 40%, #f4c362 50%, #e8a840 65%, #8b4513 80%, #1a1a2e 100%)", opacity: 0.4 }} />
-              <input type="range" min={Math.floor(sunrise * 60) - 30} max={Math.ceil(sunset * 60) + 30} value={timeMinutes} onChange={(e) => setTimeMinutes(Number(e.target.value))} className="w-full relative z-10 bg-transparent cursor-pointer h-6" style={{ WebkitAppearance: "none", appearance: "none" }} />
+              <div className="absolute inset-0 h-1 top-1/2 -translate-y-1/2 rounded-full" style={{ background: "linear-gradient(to right, #1a1a2e 0%, #e8a840 25%, #f4c362 50%, #e8a840 75%, #1a1a2e 100%)", opacity: 0.3 }} />
+              {/* Day separator mark at midnight */}
+              <div className="absolute h-3 top-1/2 -translate-y-1/2 border-l border-white/20 z-[5]" style={{ left: `${((1440 - todaySunrise) / (tomorrowSunset - todaySunrise)) * 100}%` }} />
+              <input type="range" min={todaySunrise} max={tomorrowSunset} value={timeOffset} onChange={(e) => setTimeOffset(Number(e.target.value))} className="w-full relative z-10 bg-transparent cursor-pointer h-6" style={{ WebkitAppearance: "none", appearance: "none" }} />
               <div className="flex justify-between text-[9px] text-stone-600 -mt-0.5 px-1">
-                <span>{formatTime(sunrise)}</span><span>{formatTime(sunset)}</span>
+                <span>Today ☀️</span><span>Tomorrow ☀️</span>
               </div>
             </div>
           </div>
@@ -822,7 +881,7 @@ export default function App() {
             {sortedVenues.length === 0 ? (
               <div className="text-center py-12 text-stone-600"><p className="text-xs">No venues match this filter</p></div>
             ) : sortedVenues.map((v) => (
-              <VenueCard key={v.id} venue={v} scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }} isSelected={selectedId === v.id} onClick={() => setSelectedId(selectedId === v.id ? null : v.id)} buildings={buildings} currentMinutes={timeMinutes} onTimeClick={setTimeMinutes} weather={weather} />
+              <VenueCard key={v.id} venue={v} scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }} isSelected={selectedId === v.id} onClick={() => setSelectedId(selectedId === v.id ? null : v.id)} buildings={buildings} currentMinutes={timeOffset} onTimeClick={setTimeOffset} weather={weather} />
             ))}
           </div>
         </div>
@@ -850,15 +909,13 @@ export default function App() {
             <div className="flex items-center justify-between w-full px-4">
               <div className="flex items-center gap-2">
                 <span className="text-lg font-light" style={{ color: sun.golden > 0.3 ? "#e8a840" : sun.isDay ? "#c8c0b0" : "#555" }}>
-                  {formatTime(timeMinutes / 60)}
+                  {formatTime(timeOffset / 60)}
                 </span>
                 {weather && <span className="text-sm">{getWeatherIcon(currentWeatherCode, cloudCover)}</span>}
-                <span className="text-[9px] uppercase tracking-wider text-stone-500">
-                  {weather ? getWeatherLabel(currentWeatherCode, cloudCover) : getTimeLabel(sun)}
-                </span>
+                <span className="text-[9px] uppercase tracking-wider text-stone-500">{dayLabel}</span>
               </div>
-              <span className="text-[10px] font-light tracking-tight">
-                Ericeira <span style={{ color: "#e8a840" }}>Golden Hour</span>
+              <span className="text-[9px] uppercase tracking-wider" style={{ color: sun.golden > 0.3 ? "rgba(232,168,64,0.6)" : "rgba(160,150,140,0.3)" }}>
+                {weather ? getWeatherLabel(currentWeatherCode, cloudCover) : getTimeLabel(sun)}
               </span>
             </div>
           </div>
@@ -866,10 +923,11 @@ export default function App() {
           {/* Time slider */}
           <div className="flex-shrink-0 px-4 pb-1">
             <div className="relative">
-              <div className="absolute inset-0 h-1 top-1/2 -translate-y-1/2 rounded-full" style={{ background: "linear-gradient(to right, #1a1a2e 0%, #2a2040 15%, #e8a840 40%, #f4c362 50%, #e8a840 65%, #8b4513 80%, #1a1a2e 100%)", opacity: 0.4 }} />
-              <input type="range" min={Math.floor(sunrise * 60) - 30} max={Math.ceil(sunset * 60) + 30} value={timeMinutes} onChange={(e) => setTimeMinutes(Number(e.target.value))} className="w-full relative z-10 bg-transparent cursor-pointer h-6" style={{ WebkitAppearance: "none", appearance: "none" }} />
+              <div className="absolute inset-0 h-1 top-1/2 -translate-y-1/2 rounded-full" style={{ background: "linear-gradient(to right, #1a1a2e 0%, #e8a840 25%, #f4c362 50%, #e8a840 75%, #1a1a2e 100%)", opacity: 0.3 }} />
+              <div className="absolute h-3 top-1/2 -translate-y-1/2 border-l border-white/20 z-[5]" style={{ left: `${((1440 - todaySunrise) / (tomorrowSunset - todaySunrise)) * 100}%` }} />
+              <input type="range" min={todaySunrise} max={tomorrowSunset} value={timeOffset} onChange={(e) => setTimeOffset(Number(e.target.value))} className="w-full relative z-10 bg-transparent cursor-pointer h-6" style={{ WebkitAppearance: "none", appearance: "none" }} />
               <div className="flex justify-between text-[9px] text-stone-600 -mt-0.5 px-1">
-                <span>{formatTime(sunrise)}</span><span>{formatTime(sunset)}</span>
+                <span>Today</span><span>Tomorrow</span>
               </div>
             </div>
           </div>
@@ -886,7 +944,7 @@ export default function App() {
             {sortedVenues.length === 0 ? (
               <div className="text-center py-8 text-stone-600"><p className="text-xs">No venues match this filter</p></div>
             ) : sortedVenues.map((v) => (
-              <VenueCard key={v.id} venue={v} scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }} isSelected={selectedId === v.id} onClick={() => setSelectedId(selectedId === v.id ? null : v.id)} buildings={buildings} currentMinutes={timeMinutes} onTimeClick={setTimeMinutes} weather={weather} />
+              <VenueCard key={v.id} venue={v} scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }} isSelected={selectedId === v.id} onClick={() => setSelectedId(selectedId === v.id ? null : v.id)} buildings={buildings} currentMinutes={timeOffset} onTimeClick={setTimeOffset} weather={weather} />
             ))}
           </div>
         </div>
