@@ -683,25 +683,72 @@ export default function App() {
 
       {/* PANEL */}
       <div className={`${showPanel ? "flex" : "hidden"} lg:flex flex-col w-full lg:w-[360px] xl:w-[400px] bg-[#0a0a0f] border-t lg:border-t-0 lg:border-l border-white/[0.06] overflow-hidden flex-shrink-0 max-h-[60vh] lg:max-h-none`}>
-        {/* Time control */}
-        <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-white/[0.04]">
-          <div className="flex items-baseline justify-between mb-1.5">
-            <div className="text-2xl font-light" style={{ color: sun.golden > 0.3 ? "#e8a840" : sun.isDay ? "#c8c0b0" : "#555" }}>
-              {formatTime(timeMinutes / 60)}
+        {/* Time control — reactive */}
+        {(() => {
+          const intensity = sun.isDay ? Math.min(1, sun.altitude / 45) : 0;
+          const isGolden = sun.golden > 0.3;
+          const glowOp = isGolden ? 0.2 + sun.golden * 0.25 : intensity * 0.06;
+          const bgColor = isGolden ? `rgba(232,168,64,${glowOp})` : sun.isDay ? `rgba(200,192,176,${glowOp * 0.4})` : "transparent";
+          const dayProg = Math.max(0, Math.min(1, (timeMinutes - sunrise * 60) / ((sunset - sunrise) * 60)));
+          const sunCount = VENUES.filter(v => scores[v.id]?.score > 0.4).length;
+          return (
+            <div className="flex-shrink-0 border-b border-white/[0.04] relative overflow-hidden" style={{ background: bgColor, transition: "background 0.5s ease" }}>
+              {/* Ambient glow */}
+              {sun.isDay && <div className="absolute inset-0 pointer-events-none" style={{
+                background: isGolden
+                  ? `radial-gradient(ellipse at ${dayProg * 100}% 80%, rgba(232,168,64,${0.12 + sun.golden * 0.18}) 0%, transparent 70%)`
+                  : `radial-gradient(ellipse at ${dayProg * 100}% 80%, rgba(255,240,200,${intensity * 0.05}) 0%, transparent 60%)`,
+                transition: "all 0.5s ease"
+              }} />}
+              <div className="relative px-4 pt-3 pb-2">
+                {/* Time + context */}
+                <div className="flex items-baseline justify-between mb-1">
+                  <div className="flex items-baseline gap-2">
+                    <div className="font-light" style={{
+                      color: isGolden ? "#e8a840" : sun.isDay ? "#c8c0b0" : "#555",
+                      fontSize: isGolden ? "28px" : "24px",
+                      textShadow: isGolden ? "0 0 20px rgba(232,168,64,0.3)" : "none",
+                      transition: "all 0.4s ease"
+                    }}>
+                      {formatTime(timeMinutes / 60)}
+                    </div>
+                    {sun.isDay && <span className="text-[10px] uppercase tracking-wider" style={{ color: isGolden ? "rgba(232,168,64,0.8)" : "rgba(160,150,140,0.5)", transition: "color 0.4s" }}>{getTimeLabel(sun)}</span>}
+                  </div>
+                  {sun.isDay && <div className="text-[10px] tabular-nums" style={{ color: isGolden ? "rgba(232,168,64,0.6)" : "rgba(160,150,140,0.3)", transition: "color 0.4s" }}>{sunCount} in sun</div>}
+                </div>
+                {/* Sun arc */}
+                <svg viewBox="0 0 280 20" className="w-full" style={{ height: 20 }}>
+                  <path d="M 10 18 Q 140 -8 270 18" fill="none" stroke={isGolden ? "rgba(232,168,64,0.25)" : "rgba(255,255,255,0.06)"} strokeWidth="1" style={{ transition: "stroke 0.4s" }} />
+                  <line x1="10" y1="18" x2="38" y2="18" stroke="rgba(232,168,64,0.3)" strokeWidth="2" strokeLinecap="round" />
+                  <line x1="242" y1="18" x2="270" y2="18" stroke="rgba(232,168,64,0.3)" strokeWidth="2" strokeLinecap="round" />
+                  {sun.isDay && (() => {
+                    const sx = 10 + dayProg * 260;
+                    const sy = 18 - Math.sin(dayProg * Math.PI) * 26;
+                    return <>
+                      {isGolden && <circle cx={sx} cy={sy} r="7" fill="rgba(232,168,64,0.12)" />}
+                      <circle cx={sx} cy={sy} r={isGolden ? 3.5 : 2.5} fill={isGolden ? "#e8a840" : "#c8c0b0"} opacity={isGolden ? 1 : 0.5} />
+                    </>;
+                  })()}
+                </svg>
+                {/* Slider */}
+                <div className="relative -mt-1">
+                  <div className="absolute inset-0 h-[3px] top-1/2 -translate-y-1/2 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{
+                      background: "linear-gradient(to right, #2a2040 0%, #e8a840 35%, #f4c362 50%, #e8a840 65%, #2a2040 100%)",
+                      opacity: isGolden ? 0.6 : 0.25,
+                      transition: "opacity 0.5s"
+                    }} />
+                  </div>
+                  <input type="range" min={Math.floor(sunrise * 60) - 30} max={Math.ceil(sunset * 60) + 30} value={timeMinutes} onChange={(e) => setTimeMinutes(Number(e.target.value))} className="w-full relative z-10 bg-transparent cursor-pointer h-6" style={{ WebkitAppearance: "none", appearance: "none" }} />
+                  <style>{`input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#e8a840;box-shadow:0 0 20px rgba(232,168,64,0.5);border:2px solid #f4d48a;cursor:grab}input[type="range"]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#e8a840;box-shadow:0 0 20px rgba(232,168,64,0.5);border:2px solid #f4d48a;cursor:grab}input[type="range"]::-webkit-slider-runnable-track{background:transparent}input[type="range"]::-moz-range-track{background:transparent}.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 8px 30px rgba(0,0,0,0.3)!important}.leaflet-popup-tip{display:none!important}`}</style>
+                </div>
+                <div className="flex justify-between text-[9px] text-stone-600 -mt-1 px-1">
+                  <span>{formatTime(sunrise)}</span><span>{formatTime(sunset)}</span>
+                </div>
+              </div>
             </div>
-            <div className="text-[10px] uppercase tracking-wider" style={{ color: sun.golden > 0.3 ? "rgba(232,168,64,0.7)" : "rgba(160,150,140,0.4)" }}>
-              {getTimeLabel(sun)}
-            </div>
-          </div>
-          <div className="relative">
-            <div className="absolute inset-0 h-1 top-1/2 -translate-y-1/2 rounded-full" style={{ background: "linear-gradient(to right, #1a1a2e 0%, #2a2040 15%, #e8a840 40%, #f4c362 50%, #e8a840 65%, #8b4513 80%, #1a1a2e 100%)", opacity: 0.4 }} />
-            <input type="range" min={Math.floor(sunrise * 60) - 30} max={Math.ceil(sunset * 60) + 30} value={timeMinutes} onChange={(e) => setTimeMinutes(Number(e.target.value))} className="w-full relative z-10 bg-transparent cursor-pointer h-6" style={{ WebkitAppearance: "none", appearance: "none" }} />
-            <style>{`input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#e8a840;box-shadow:0 0 16px rgba(232,168,64,0.5);border:2px solid #f4d48a;cursor:grab}input[type="range"]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#e8a840;box-shadow:0 0 16px rgba(232,168,64,0.5);border:2px solid #f4d48a;cursor:grab}.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 8px 30px rgba(0,0,0,0.3)!important}.leaflet-popup-tip{display:none!important}`}</style>
-            <div className="flex justify-between text-[9px] text-stone-600 -mt-0.5 px-1">
-              <span>{formatTime(sunrise)}</span><span>{formatTime(sunset)}</span>
-            </div>
-          </div>
-        </div>
+          );
+        })()}
 
         {/* Filters */}
         <div className="flex-shrink-0 flex gap-1 px-3 py-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
