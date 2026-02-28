@@ -362,9 +362,9 @@ function MapView({ venues, scores, selectedId, onSelect, buildings, sun }) {
   useEffect(() => {
     if (!ready || !mapRef.current || mapObjRef.current) return;
     const L = window.L;
-    const map = L.map(mapRef.current, { center: [ERICEIRA_LAT, ERICEIRA_LNG], zoom: 16, zoomControl: false });
+    const map = L.map(mapRef.current, { center: [ERICEIRA_LAT, ERICEIRA_LNG], zoom: 16, zoomControl: false, attributionControl: false });
     L.control.zoom({ position: "bottomleft" }).addTo(map);
-    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { attribution: '© <a href="https://carto.com/">CARTO</a>', maxZoom: 19 }).addTo(map);
+    L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { attribution: "", maxZoom: 19 }).addTo(map);
     mapObjRef.current = map;
     setTimeout(() => map.invalidateSize(), 100);
   }, [ready]);
@@ -675,8 +675,15 @@ export default function App() {
       {/* MAP */}
       <div className="flex-1 relative min-h-[40vh] lg:min-h-0">
         <MapView venues={VENUES} scores={scores} selectedId={selectedId} onSelect={setSelectedId} buildings={buildings} sun={sun} />
-
-        <button onClick={() => setShowPanel(!showPanel)} className="lg:hidden absolute top-4 right-4 w-10 h-10 rounded-lg bg-black/70 backdrop-blur border border-white/10 flex items-center justify-center text-stone-300 z-[500]">
+        {/* Title overlay — only on mobile when panel is hidden, always on desktop */}
+        {!showPanel && (
+          <div className="lg:hidden absolute top-4 left-4 pointer-events-none z-[500]">
+            <h1 className="text-lg font-light tracking-tight drop-shadow-lg">
+              Ericeira <span style={{ color: "#e8a840" }}>Golden Hour</span>
+            </h1>
+          </div>
+        )}
+        <button onClick={() => { setShowPanel(!showPanel); setTimeout(() => { const evt = new Event("resize"); window.dispatchEvent(evt); }, 50); }} className="lg:hidden absolute top-4 right-4 w-10 h-10 rounded-lg bg-black/70 backdrop-blur border border-white/10 flex items-center justify-center text-stone-300 z-[500]">
           {showPanel ? "✕" : "☰"}
         </button>
       </div>
