@@ -625,7 +625,7 @@ export default function App() {
   const now = new Date();
   const [timeMinutes, setTimeMinutes] = useState(now.getHours() * 60 + now.getMinutes());
   const [selectedId, setSelectedId] = useState(null);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("sunlit");
   const [showPanel, setShowPanel] = useState(true);
   const [buildings, setBuildings] = useState(FALLBACK_BUILDINGS);
   const [buildingSource, setBuildingSource] = useState("fallback");
@@ -718,7 +718,7 @@ export default function App() {
 
         {/* Filters */}
         <div className="flex-shrink-0 flex gap-1 px-3 py-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-          {[{ key: "all", label: "All" }, { key: "sunlit", label: "☀️ Sun" }, { key: "food", label: "Food" }, { key: "bars", label: "Bars" }, { key: "cafe", label: "Coffee" }, { key: "beach", label: "Beach" }, { key: "pizza", label: "Pizza" }, { key: "tasca", label: "Tasca" }].map(({ key, label }) => (
+          {[{ key: "sunlit", label: "☀️ Sun" }, { key: "food", label: "Food" }, { key: "bars", label: "Bars" }, { key: "cafe", label: "Coffee" }, { key: "beach", label: "Beach" }, { key: "pizza", label: "Pizza" }, { key: "tasca", label: "Tasca" }].map(({ key, label }) => (
             <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap transition-all ${filter === key ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>
               {label}
             </button>
