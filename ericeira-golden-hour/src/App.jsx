@@ -625,8 +625,7 @@ export default function App() {
   const now = new Date();
   const [timeMinutes, setTimeMinutes] = useState(now.getHours() * 60 + now.getMinutes());
   const [selectedId, setSelectedId] = useState(null);
-  const [filter, setFilter] = useState("sunlit");
-  const [showPanel, setShowPanel] = useState(true);
+  const [filter, setFilter] = useState("all");
   const [buildings, setBuildings] = useState(FALLBACK_BUILDINGS);
   const [buildingSource, setBuildingSource] = useState("fallback");
 
@@ -669,84 +668,141 @@ export default function App() {
     return f.sort((a, b) => (scores[b.id]?.score || 0) - (scores[a.id]?.score || 0));
   }, [scores, filter]);
 
+  // Bottom sheet state for mobile (snap points: peek=18vh, half=50vh, full=85vh)
+  const [sheetHeight, setSheetHeight] = useState(50);
+  const dragRef = useRef({ startY: 0, startH: 0, dragging: false });
+
+  const onDragStart = useCallback((e) => {
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    dragRef.current = { startY: y, startH: sheetHeight, dragging: true };
+  }, [sheetHeight]);
+
+  const onDragMove = useCallback((e) => {
+    if (!dragRef.current.dragging) return;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    const delta = dragRef.current.startY - y;
+    const deltaVh = (delta / window.innerHeight) * 100;
+    const newH = Math.max(18, Math.min(90, dragRef.current.startH + deltaVh));
+    setSheetHeight(newH);
+  }, []);
+
+  const onDragEnd = useCallback(() => {
+    if (!dragRef.current.dragging) return;
+    dragRef.current.dragging = false;
+    const h = sheetHeight;
+    if (h < 30) setSheetHeight(18);
+    else if (h < 70) setSheetHeight(50);
+    else setSheetHeight(85);
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 50);
+  }, [sheetHeight]);
+
   return (
-    <div className="h-screen w-screen flex flex-col lg:flex-row bg-[#0a0a0f] text-stone-200 overflow-hidden" style={{ fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif" }}>
-      {/* MAP */}
-      <div className="flex-1 relative min-h-[40vh] lg:min-h-0">
-        <MapView venues={VENUES} scores={scores} selectedId={selectedId} onSelect={setSelectedId} buildings={buildings} sun={sun} />
-        {/* Title overlay — only on mobile when panel is hidden, always on desktop */}
-        {!showPanel && (
-          <div className="lg:hidden absolute top-4 left-4 pointer-events-none z-[500]">
-            <h1 className="text-lg font-light tracking-tight drop-shadow-lg">
-              Ericeira <span style={{ color: "#e8a840" }}>Golden Hour</span>
-            </h1>
+    <div className="h-screen w-screen bg-[#0a0a0f] text-stone-200 overflow-hidden relative" style={{ fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif" }}>
+      {/* DESKTOP LAYOUT */}
+      <div className="hidden lg:flex h-full flex-row">
+        {/* Map */}
+        <div className="flex-1 relative">
+          <MapView venues={VENUES} scores={scores} selectedId={selectedId} onSelect={setSelectedId} buildings={buildings} sun={sun} />
+        </div>
+        {/* Side panel */}
+        <div className="flex flex-col w-[360px] xl:w-[400px] bg-[#0a0a0f] border-l border-white/[0.06] overflow-hidden flex-shrink-0">
+          <div className="flex-shrink-0 flex items-center justify-between px-4 pt-3 pb-1">
+            <div>
+              <h1 className="text-lg font-light tracking-tight">Ericeira <span style={{ color: "#e8a840" }}>Golden Hour</span></h1>
+              <p className="text-[9px] uppercase tracking-[0.15em] text-stone-500 -mt-0.5">the sun guide to Ericeira</p>
+            </div>
           </div>
-        )}
-        <button onClick={() => { setShowPanel(!showPanel); setTimeout(() => { const evt = new Event("resize"); window.dispatchEvent(evt); }, 50); }} className="lg:hidden absolute top-4 right-4 w-10 h-10 rounded-lg bg-black/70 backdrop-blur border border-white/10 flex items-center justify-center text-stone-300 z-[500]">
-          {showPanel ? "✕" : "☰"}
-        </button>
+          <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-white/[0.04]">
+            <div className="flex items-baseline justify-between mb-1.5">
+              <div className="text-2xl font-light" style={{ color: sun.golden > 0.3 ? "#e8a840" : sun.isDay ? "#c8c0b0" : "#555" }}>{formatTime(timeMinutes / 60)}</div>
+              <div className="text-[10px] uppercase tracking-wider" style={{ color: sun.golden > 0.3 ? "rgba(232,168,64,0.7)" : "rgba(160,150,140,0.4)" }}>{getTimeLabel(sun)}</div>
+            </div>
+            <div className="relative">
+              <div className="absolute inset-0 h-1 top-1/2 -translate-y-1/2 rounded-full" style={{ background: "linear-gradient(to right, #1a1a2e 0%, #2a2040 15%, #e8a840 40%, #f4c362 50%, #e8a840 65%, #8b4513 80%, #1a1a2e 100%)", opacity: 0.4 }} />
+              <input type="range" min={Math.floor(sunrise * 60) - 30} max={Math.ceil(sunset * 60) + 30} value={timeMinutes} onChange={(e) => setTimeMinutes(Number(e.target.value))} className="w-full relative z-10 bg-transparent cursor-pointer h-6" style={{ WebkitAppearance: "none", appearance: "none" }} />
+              <div className="flex justify-between text-[9px] text-stone-600 -mt-0.5 px-1">
+                <span>{formatTime(sunrise)}</span><span>{formatTime(sunset)}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex-shrink-0 flex gap-1 px-3 py-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+            {[{ key: "all", label: "All" }, { key: "sunlit", label: "☀️ Sun" }, { key: "food", label: "Food" }, { key: "bars", label: "Bars" }, { key: "cafe", label: "Coffee" }, { key: "beach", label: "Beach" }, { key: "pizza", label: "Pizza" }, { key: "tasca", label: "Tasca" }].map(({ key, label }) => (
+              <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap transition-all ${filter === key ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>{label}</button>
+            ))}
+          </div>
+          <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(232,168,64,0.15) transparent" }}>
+            {sortedVenues.length === 0 ? (
+              <div className="text-center py-12 text-stone-600"><p className="text-xs">No venues match this filter</p></div>
+            ) : sortedVenues.map((v) => (
+              <VenueCard key={v.id} venue={v} scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }} isSelected={selectedId === v.id} onClick={() => setSelectedId(selectedId === v.id ? null : v.id)} buildings={buildings} currentMinutes={timeMinutes} onTimeClick={setTimeMinutes} />
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* PANEL */}
-      <div className={`${showPanel ? "flex" : "hidden"} lg:flex flex-col w-full lg:w-[360px] xl:w-[400px] bg-[#0a0a0f] border-t lg:border-t-0 lg:border-l border-white/[0.06] overflow-hidden flex-shrink-0 max-h-[60vh] lg:max-h-none`}>
-        {/* Header */}
-        <div className="flex-shrink-0 flex items-center justify-between px-4 pt-3 pb-1">
-          <div>
-            <h1 className="text-lg font-light tracking-tight">Ericeira <span style={{ color: "#e8a840" }}>Golden Hour</span></h1>
-            <p className="text-[9px] uppercase tracking-[0.15em] text-stone-500 -mt-0.5">the sun guide to Ericeira</p>
-          </div>
-        </div>
-        {/* Time control */}
-        <div className="flex-shrink-0 px-4 pt-3 pb-2 border-b border-white/[0.04]">
-          <div className="flex items-baseline justify-between mb-1.5">
-            <div className="text-2xl font-light" style={{ color: sun.golden > 0.3 ? "#e8a840" : sun.isDay ? "#c8c0b0" : "#555" }}>
-              {formatTime(timeMinutes / 60)}
-            </div>
-            <div className="text-[10px] uppercase tracking-wider" style={{ color: sun.golden > 0.3 ? "rgba(232,168,64,0.7)" : "rgba(160,150,140,0.4)" }}>
-              {getTimeLabel(sun)}
-            </div>
-          </div>
-          <div className="relative">
-            <div className="absolute inset-0 h-1 top-1/2 -translate-y-1/2 rounded-full" style={{ background: "linear-gradient(to right, #1a1a2e 0%, #2a2040 15%, #e8a840 40%, #f4c362 50%, #e8a840 65%, #8b4513 80%, #1a1a2e 100%)", opacity: 0.4 }} />
-            <input type="range" min={Math.floor(sunrise * 60) - 30} max={Math.ceil(sunset * 60) + 30} value={timeMinutes} onChange={(e) => setTimeMinutes(Number(e.target.value))} className="w-full relative z-10 bg-transparent cursor-pointer h-6" style={{ WebkitAppearance: "none", appearance: "none" }} />
-            <style>{`input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#e8a840;box-shadow:0 0 16px rgba(232,168,64,0.5);border:2px solid #f4d48a;cursor:grab}input[type="range"]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#e8a840;box-shadow:0 0 16px rgba(232,168,64,0.5);border:2px solid #f4d48a;cursor:grab}.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 8px 30px rgba(0,0,0,0.3)!important}.leaflet-popup-tip{display:none!important}`}</style>
-            <div className="flex justify-between text-[9px] text-stone-600 -mt-0.5 px-1">
-              <span>{formatTime(sunrise)}</span><span>{formatTime(sunset)}</span>
-            </div>
-          </div>
+      {/* MOBILE LAYOUT — fullscreen map + bottom sheet */}
+      <div className="lg:hidden h-full relative">
+        {/* Fullscreen map */}
+        <div className="absolute inset-0">
+          <MapView venues={VENUES} scores={scores} selectedId={selectedId} onSelect={(id) => { setSelectedId(id); if (sheetHeight < 30) setSheetHeight(50); }} buildings={buildings} sun={sun} />
         </div>
 
-        {/* Filters */}
-        <div className="flex-shrink-0 flex gap-1 px-3 py-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-          {[{ key: "sunlit", label: "☀️ Sun" }, { key: "food", label: "Food" }, { key: "bars", label: "Bars" }, { key: "cafe", label: "Coffee" }, { key: "beach", label: "Beach" }, { key: "pizza", label: "Pizza" }, { key: "tasca", label: "Tasca" }].map(({ key, label }) => (
-            <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap transition-all ${filter === key ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Venue list */}
-        <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(232,168,64,0.15) transparent" }}>
-          {sortedVenues.length === 0 ? (
-            <div className="text-center py-12 text-stone-600">
-              <p className="text-xs">No venues match this filter</p>
+        {/* Bottom sheet */}
+        <div
+          className="absolute left-0 right-0 bottom-0 bg-[#0a0a0f] rounded-t-2xl border-t border-white/[0.08] flex flex-col overflow-hidden z-[600]"
+          style={{ height: `${sheetHeight}vh`, transition: dragRef.current.dragging ? "none" : "height 0.3s ease-out" }}
+        >
+          {/* Drag handle */}
+          <div
+            className="flex-shrink-0 flex flex-col items-center pt-2 pb-1 cursor-grab active:cursor-grabbing touch-none"
+            onTouchStart={onDragStart} onTouchMove={onDragMove} onTouchEnd={onDragEnd}
+            onMouseDown={onDragStart} onMouseMove={onDragMove} onMouseUp={onDragEnd}
+          >
+            <div className="w-10 h-1 rounded-full bg-white/20 mb-1.5" />
+            <div className="flex items-baseline justify-between w-full px-4">
+              <div className="flex items-baseline gap-2">
+                <span className="text-lg font-light" style={{ color: sun.golden > 0.3 ? "#e8a840" : sun.isDay ? "#c8c0b0" : "#555" }}>
+                  {formatTime(timeMinutes / 60)}
+                </span>
+                <span className="text-[9px] uppercase tracking-wider text-stone-500">{getTimeLabel(sun)}</span>
+              </div>
+              <span className="text-[10px] font-light tracking-tight">
+                Ericeira <span style={{ color: "#e8a840" }}>Golden Hour</span>
+              </span>
             </div>
-          ) : (
-            sortedVenues.map((v) => (
-              <VenueCard
-                key={v.id}
-                venue={v}
-                scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }}
-                isSelected={selectedId === v.id}
-                onClick={() => setSelectedId(selectedId === v.id ? null : v.id)}
-                buildings={buildings}
-                currentMinutes={timeMinutes}
-                onTimeClick={setTimeMinutes}
-              />
-            ))
-          )}
+          </div>
+
+          {/* Time slider */}
+          <div className="flex-shrink-0 px-4 pb-1">
+            <div className="relative">
+              <div className="absolute inset-0 h-1 top-1/2 -translate-y-1/2 rounded-full" style={{ background: "linear-gradient(to right, #1a1a2e 0%, #2a2040 15%, #e8a840 40%, #f4c362 50%, #e8a840 65%, #8b4513 80%, #1a1a2e 100%)", opacity: 0.4 }} />
+              <input type="range" min={Math.floor(sunrise * 60) - 30} max={Math.ceil(sunset * 60) + 30} value={timeMinutes} onChange={(e) => setTimeMinutes(Number(e.target.value))} className="w-full relative z-10 bg-transparent cursor-pointer h-6" style={{ WebkitAppearance: "none", appearance: "none" }} />
+              <div className="flex justify-between text-[9px] text-stone-600 -mt-0.5 px-1">
+                <span>{formatTime(sunrise)}</span><span>{formatTime(sunset)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div className="flex-shrink-0 flex gap-1 px-3 py-1.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+            {[{ key: "all", label: "All" }, { key: "sunlit", label: "☀️ Sun" }, { key: "food", label: "Food" }, { key: "bars", label: "Bars" }, { key: "cafe", label: "Coffee" }, { key: "beach", label: "Beach" }, { key: "pizza", label: "Pizza" }, { key: "tasca", label: "Tasca" }].map(({ key, label }) => (
+              <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap transition-all ${filter === key ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>{label}</button>
+            ))}
+          </div>
+
+          {/* Venue list */}
+          <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(232,168,64,0.15) transparent" }}>
+            {sortedVenues.length === 0 ? (
+              <div className="text-center py-8 text-stone-600"><p className="text-xs">No venues match this filter</p></div>
+            ) : sortedVenues.map((v) => (
+              <VenueCard key={v.id} venue={v} scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }} isSelected={selectedId === v.id} onClick={() => setSelectedId(selectedId === v.id ? null : v.id)} buildings={buildings} currentMinutes={timeMinutes} onTimeClick={setTimeMinutes} />
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Global styles */}
+      <style>{`input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#e8a840;box-shadow:0 0 16px rgba(232,168,64,0.5);border:2px solid #f4d48a;cursor:grab}input[type="range"]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#e8a840;box-shadow:0 0 16px rgba(232,168,64,0.5);border:2px solid #f4d48a;cursor:grab}.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 8px 30px rgba(0,0,0,0.3)!important}.leaflet-popup-tip{display:none!important}`}</style>
     </div>
   );
 }
