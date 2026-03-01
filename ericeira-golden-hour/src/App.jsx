@@ -105,6 +105,18 @@ const VENUES = [
   { id: 90, name: "Golfinho Azul", type: "Seafood", zone: "Ribamar", lat: 39.013351, lng: -9.421155, facing: 270, elevated: true, rating: 4.5, cat: "food", tags: ["food", "traditional"], placeId: "ChIJ35GXbIUmHw0RMAIPfstPQ9Y" },
   { id: 91, name: "Viveiros do Atlântico", type: "Marisqueira", zone: "Ribamar", lat: 39.0021693, lng: -9.4179192, facing: 270, elevated: false, rating: 4.2, cat: "food", tags: ["food", "traditional"], placeId: "ChIJh6itHowmHw0Rsqs93nFEjWA" },
   { id: 92, name: "Ribamariscos", type: "Marisqueira", zone: "Santo Isidoro", lat: 39.0058784, lng: -9.4203081, facing: 270, elevated: false, rating: 4.5, cat: "food", tags: ["food", "traditional"], placeId: "ChIJw7tGyo0mHw0R9wH1fmrnXSE" },
+  // — Beaches —
+  { id: 100, name: "Praia dos Pescadores", type: "Beach · Sheltered Cove", zone: "Centro", lat: 38.964101, lng: -9.418555, facing: 250, elevated: false, rating: 4.5, cat: "beach", tags: ["beach"], placeId: "ChIJXXK-aQwnHw0RTfvxUtsaJJY" },
+  { id: 101, name: "Praia do Sul", type: "Beach · Sandy", zone: "Centro", lat: 38.9587, lng: -9.4158, facing: 260, elevated: false, rating: 4.6, cat: "beach", tags: ["beach"], placeId: "ChIJI5ODXHQnHw0RczNKV6vsJXw" },
+  { id: 102, name: "Praia do Norte", type: "Beach · Surf", zone: "Centro", lat: 38.966667, lng: -9.416667, facing: 280, elevated: false, rating: 4.7, cat: "beach", tags: ["beach"], placeId: "ChIJq_zBTwknHw0RUYg2sqhjFc4" },
+  { id: 103, name: "Praia de São Sebastião", type: "Beach · Family", zone: "São Sebastião", lat: 38.9729167, lng: -9.4201944, facing: 270, elevated: false, rating: 4.5, cat: "beach", tags: ["beach"], placeId: "ChIJce6uBwUnHw0RzsE67zeWlks" },
+  { id: 104, name: "Praia do Matadouro", type: "Beach · Surf", zone: "São Sebastião", lat: 38.9758164, lng: -9.4197251, facing: 270, elevated: false, rating: 4.4, cat: "beach", tags: ["beach"], placeId: "ChIJ9TK4hgQnHw0RA4aNoq2idC0" },
+  { id: 105, name: "Praia da Empa", type: "Beach · Reef Break", zone: "São Sebastião", lat: 38.979549, lng: -9.422386, facing: 280, elevated: false, rating: 4.6, cat: "beach", tags: ["beach"], placeId: "ChIJ65QKyQInHw0RcKuKcP5SJ6k" },
+  { id: 106, name: "Ribeira d'Ilhas", type: "Beach · World Surf Reserve", zone: "Ribeira d'Ilhas", lat: 38.9878056, lng: -9.4192766, facing: 280, elevated: false, rating: 4.7, cat: "beach", tags: ["beach"], placeId: "ChIJNfwJl_smHw0RAdNkoa-12L8" },
+  { id: 107, name: "Praia dos Coxos", type: "Beach · Advanced Surf", zone: "Ribamar", lat: 39.004045, lng: -9.425417, facing: 290, elevated: false, rating: 4.5, cat: "beach", tags: ["beach"], placeId: "ChIJhZJkU5ImHw0RxhwCzZCIxoc" },
+  { id: 108, name: "Praia de São Lourenço", type: "Beach · Family Surf", zone: "Ribamar", lat: 39.012036, lng: -9.421678, facing: 270, elevated: false, rating: 4.5, cat: "beach", tags: ["beach"], placeId: "ChIJTy-S9Y8mHw0RWvee657-zzA" },
+  { id: 109, name: "Foz do Lizandro", type: "Beach · River & Surf", zone: "Foz do Lizandro", lat: 38.9413562, lng: -9.4150168, facing: 270, elevated: false, rating: 4.6, cat: "beach", tags: ["beach"], placeId: "ChIJqd4X-3knHw0RcnxqlAHpRUI" },
+  { id: 110, name: "Praia de São Julião", type: "Beach · Wild", zone: "São Julião", lat: 38.9319734, lng: -9.4197186, facing: 270, elevated: false, rating: 4.6, cat: "beach", tags: ["beach"], placeId: "ChIJ42y9AofYHg0R_J86_JWQix4" },
 ];
 
 // ============================================================
@@ -752,6 +764,10 @@ export default function App() {
   const currentOffset = Math.floor((now - todayMidnight) / 60000); // minutes since midnight
   const [timeOffset, setTimeOffset] = useState(currentOffset);
   const [selectedId, setSelectedId] = useState(null);
+  const [selectionSource, setSelectionSource] = useState(null); // 'map' or 'list'
+  const mapSelectCounter = useRef(0);
+  const [mapSelectTrigger, setMapSelectTrigger] = useState(0);
+  const mobileListRef = useRef(null);
   const [filter, setFilter] = useState("all");
   const [buildings, setBuildings] = useState(FALLBACK_BUILDINGS);
   const [buildingSource, setBuildingSource] = useState("fallback");
@@ -766,6 +782,19 @@ export default function App() {
       }
     });
   }, []);
+
+  // Scroll mobile venue list to selected card when tapped on map
+  useEffect(() => {
+    if (!selectedId || selectionSource !== 'map' || !mobileListRef.current) return;
+    const timer = setTimeout(() => {
+      if (!mobileListRef.current) return;
+      const el = mobileListRef.current.querySelector(`[data-venue-id="${selectedId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [selectedId, mapSelectTrigger]);
 
   // Fetch 3-day weather from Open-Meteo (yesterday + today + tomorrow)
   useEffect(() => {
@@ -970,7 +999,7 @@ export default function App() {
       <div className="lg:hidden h-full relative">
         {/* Fullscreen map */}
         <div className="absolute inset-0">
-          <MapView venues={VENUES} scores={scores} selectedId={selectedId} onSelect={(id) => { setSelectedId(id); if (sheetHeight < 30) setSheetHeight(50); }} buildings={buildings} sun={sun} />
+          <MapView venues={VENUES} scores={scores} selectedId={selectedId} onSelect={(id) => { setSelectionSource('map'); setSelectedId(id); setMapSelectTrigger(c => c + 1); setFilter('all'); if (sheetHeight < 30) setSheetHeight(50); }} buildings={buildings} sun={sun} />
         </div>
 
         {/* Bottom sheet */}
@@ -1019,11 +1048,13 @@ export default function App() {
           </div>
 
           {/* Venue list */}
-          <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(232,168,64,0.15) transparent" }}>
+          <div ref={mobileListRef} className="flex-1 overflow-y-auto px-3 pb-3 space-y-1" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(232,168,64,0.15) transparent" }}>
             {sortedVenues.length === 0 ? (
               <div className="text-center py-8 text-stone-600"><p className="text-xs">No venues match this filter</p></div>
             ) : sortedVenues.map((v) => (
-              <VenueCard key={v.id} venue={v} scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }} isSelected={selectedId === v.id} onClick={() => setSelectedId(selectedId === v.id ? null : v.id)} buildings={buildings} currentMinutes={timeOffset} onTimeClick={setTimeOffset} weather={weather} currentDate={currentDate} />
+              <div key={v.id} data-venue-id={v.id}>
+                <VenueCard venue={v} scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }} isSelected={selectedId === v.id} onClick={() => { setSelectionSource('list'); setSelectedId(selectedId === v.id ? null : v.id); }} buildings={buildings} currentMinutes={timeOffset} onTimeClick={setTimeOffset} weather={weather} currentDate={currentDate} />
+              </div>
             ))}
           </div>
         </div>
