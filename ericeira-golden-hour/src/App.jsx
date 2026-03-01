@@ -6,7 +6,7 @@ const ERICEIRA_LNG = -9.4178;
 // ============================================================
 // VENUE DATA — Google Places verified coordinates
 // ============================================================
-// 88 venues — all scraped from Google Places
+// 92 venues — all scraped from Google Places
 const VENUES = [
   { id: 1, name: "Dom Bilas", type: "Brewpub", zone: "Old Town", lat: 38.964599, lng: -9.417891, facing: 240, elevated: false, rating: 5.0, cat: "food", tags: ["craft beer"], placeId: "ChIJNb-5RwAnHw0R-8yIL0DdJ7w" },
   { id: 2, name: "LAB", type: "Restaurant", zone: "Centro", lat: 38.9651642, lng: -9.4170493, facing: 220, elevated: false, rating: 4.9, cat: "food", tags: ["food"], placeId: "ChIJI_wFPwAnHw0RN-3EU4Szlyw" },
@@ -101,6 +101,10 @@ const VENUES = [
   { id: 88, name: "Sourdough Bread", type: "Bakery", zone: "Santo Isidoro", lat: 38.9936269, lng: -9.3968573, facing: 210, elevated: false, rating: 5.0, cat: "cafe", tags: ["coffee", "pastry"], placeId: "ChIJm97LewAnHw0RBMbd1PKtJsM" },
   // — Missing from Centro —
   { id: 87, name: "Com Pinta", type: "Burger & Pizza", zone: "Centro", lat: 38.9621767, lng: -9.4165678, facing: 200, elevated: false, rating: 4.4, cat: "food", tags: ["food"], placeId: "ChIJjy3oZwsnHw0RoKwSou61Em0" },
+  { id: 89, name: "Calavera", type: "Mexican", zone: "Centro", lat: 38.9650811, lng: -9.4170786, facing: 220, elevated: false, rating: 4.5, cat: "food", tags: ["food"], placeId: "ChIJlYv59gsnHw0RGjNnlNDSF8k" },
+  { id: 90, name: "Golfinho Azul", type: "Seafood", zone: "Ribamar", lat: 39.013351, lng: -9.421155, facing: 270, elevated: true, rating: 4.5, cat: "food", tags: ["food", "traditional"], placeId: "ChIJ35GXbIUmHw0RMAIPfstPQ9Y" },
+  { id: 91, name: "Viveiros do Atlântico", type: "Marisqueira", zone: "Ribamar", lat: 39.0021693, lng: -9.4179192, facing: 270, elevated: false, rating: 4.2, cat: "food", tags: ["food", "traditional"], placeId: "ChIJh6itHowmHw0Rsqs93nFEjWA" },
+  { id: 92, name: "Ribamariscos", type: "Marisqueira", zone: "Santo Isidoro", lat: 39.0058784, lng: -9.4203081, facing: 270, elevated: false, rating: 4.5, cat: "food", tags: ["food", "traditional"], placeId: "ChIJw7tGyo0mHw0R9wH1fmrnXSE" },
 ];
 
 // ============================================================
@@ -322,17 +326,23 @@ const THEFORK_SLUGS = {
   "Hayaci": "restaurante-japones-hayaci-ericeira-r840831",
   "Se7e Praias": "se7e-praias-r74443",
   "Onda": "onda-by-aethos-ericeira-r811174",
-  "Jangada": "restaurante-jangada-you-the-sea-ericeira-r887399",
-  "Mizu": "mizu-ericeira-r828619",
+  "Jangada": "restaurante-jangada-you-the-sea-ericeira-r563149",
+  "Mizu": "mizu-ericeira-r846805",
   "Red Chilli": "red-chilli-r853421",
   "Sete Sóis": "sete-sois-r827067",
-  "Beach Pizzas": "beach-pizzas-ericeira-r883207",
+  "Beach Pizzas": "beach-pizzas-ericeira-r846031",
   "Ribas Marisqueira": "ribas-marisqueira-r817625",
   "Lizandro Surf": "lizandro-surf-restaurant-bar-r800113",
   "Amadís": "amadis-gastro-drinks-r866993",
   "Dona Azeitona": "dona-azeitona-r877423",
   "Do Mar À Mesa": "do-mar-a-mesa-r892717",
   "Na Mouche": "na-mouche-r882927",
+  "Mar das Latas": "mar-das-latas-r475999",
+  "Calavera": "calavera-r369047",
+  "Golfinho Azul": "golfinho-azul-r817321",
+  "Marisqueira Viveiros": "marisqueira-viveiros-do-atlantico-r65149",
+  "Ribamariscos": "marisqueira-ribamariscos-r577307",
+  "Sal na Adega": "sal-na-adega-adegamae-r673581",
 };
 function getTheForkLink(venue) {
   for (const [key, slug] of Object.entries(THEFORK_SLUGS)) {
@@ -864,6 +874,7 @@ export default function App() {
   const sortedVenues = useMemo(() => {
     let f = [...VENUES];
     if (filter === "sunlit") f = f.filter((v) => scores[v.id]?.score > 0.4);
+    if (filter === "book") f = f.filter((v) => getTheForkLink(v) !== null);
     if (filter === "bars") f = f.filter((v) => v.cat === "bar");
     if (filter === "food") f = f.filter((v) => v.cat === "food");
     if (filter === "cafe") f = f.filter((v) => v.cat === "cafe");
@@ -941,8 +952,8 @@ export default function App() {
             </div>
           </div>
           <div className="flex-shrink-0 flex gap-1 px-3 py-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-            {[{ key: "all", label: "All" }, { key: "sunlit", label: "☀️ Sun" }, { key: "food", label: "Food" }, { key: "bars", label: "Bars" }, { key: "cafe", label: "Coffee" }, { key: "beach", label: "Beach" }, { key: "pizza", label: "Pizza" }, { key: "tasca", label: "Tasca" }].map(({ key, label }) => (
-              <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap transition-all ${filter === key ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>{label}</button>
+            {[{ key: "all", label: "All" }, { key: "sunlit", label: "☀️ Sun" }, { key: "book", label: "🍴 Book" }, { key: "food", label: "Food" }, { key: "bars", label: "Bars" }, { key: "cafe", label: "Coffee" }, { key: "beach", label: "Beach" }, { key: "pizza", label: "Pizza" }, { key: "tasca", label: "Tasca" }].map(({ key, label }) => (
+              <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap transition-all ${filter === key ? (key === "book" ? "bg-amber-600/20 text-amber-300 border border-amber-500/40" : "bg-amber-500/15 text-amber-400 border border-amber-500/30") : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>{label}</button>
             ))}
           </div>
           <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(232,168,64,0.15) transparent" }}>
@@ -1002,8 +1013,8 @@ export default function App() {
 
           {/* Filters */}
           <div className="flex-shrink-0 flex gap-1 px-3 py-1.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-            {[{ key: "all", label: "All" }, { key: "sunlit", label: "☀️ Sun" }, { key: "food", label: "Food" }, { key: "bars", label: "Bars" }, { key: "cafe", label: "Coffee" }, { key: "beach", label: "Beach" }, { key: "pizza", label: "Pizza" }, { key: "tasca", label: "Tasca" }].map(({ key, label }) => (
-              <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap transition-all ${filter === key ? "bg-amber-500/15 text-amber-400 border border-amber-500/30" : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>{label}</button>
+            {[{ key: "all", label: "All" }, { key: "sunlit", label: "☀️ Sun" }, { key: "book", label: "🍴 Book" }, { key: "food", label: "Food" }, { key: "bars", label: "Bars" }, { key: "cafe", label: "Coffee" }, { key: "beach", label: "Beach" }, { key: "pizza", label: "Pizza" }, { key: "tasca", label: "Tasca" }].map(({ key, label }) => (
+              <button key={key} onClick={() => setFilter(key)} className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full whitespace-nowrap transition-all ${filter === key ? (key === "book" ? "bg-amber-600/20 text-amber-300 border border-amber-500/40" : "bg-amber-500/15 text-amber-400 border border-amber-500/30") : "bg-white/[0.03] text-stone-500 border border-white/[0.05] hover:bg-white/[0.06]"}`}>{label}</button>
             ))}
           </div>
 
