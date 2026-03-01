@@ -6,7 +6,7 @@ const ERICEIRA_LNG = -9.4178;
 // ============================================================
 // VENUE DATA — Google Places verified coordinates
 // ============================================================
-// 87 venues — all scraped from Google Places
+// 88 venues — all scraped from Google Places
 const VENUES = [
   { id: 1, name: "Dom Bilas", type: "Brewpub", zone: "Old Town", lat: 38.964599, lng: -9.417891, facing: 240, elevated: false, rating: 5.0, cat: "food", tags: ["craft beer"], placeId: "ChIJNb-5RwAnHw0R-8yIL0DdJ7w" },
   { id: 2, name: "LAB", type: "Restaurant", zone: "Centro", lat: 38.9651642, lng: -9.4170493, facing: 220, elevated: false, rating: 4.9, cat: "food", tags: ["food"], placeId: "ChIJI_wFPwAnHw0RN-3EU4Szlyw" },
@@ -98,6 +98,7 @@ const VENUES = [
   // — Santo Isidoro —
   { id: 85, name: "Vizinha", type: "Café & Farm Shop", zone: "Santo Isidoro", lat: 38.9936067, lng: -9.3968182, facing: 210, elevated: false, rating: 4.7, cat: "cafe", tags: ["coffee"], placeId: "ChIJvbM2C7AnHw0RHj1HWj3b_fA" },
   { id: 86, name: "19 prás 2", type: "Tea House & Bakery", zone: "Santo Isidoro", lat: 38.9925873, lng: -9.3954352, facing: 210, elevated: false, rating: 5.0, cat: "cafe", tags: ["coffee", "pastry"], placeId: "ChIJeReu6rUnHw0RcEoX9kie4yM" },
+  { id: 88, name: "Sourdough Bread", type: "Bakery", zone: "Santo Isidoro", lat: 38.9936269, lng: -9.3968573, facing: 210, elevated: false, rating: 5.0, cat: "cafe", tags: ["coffee", "pastry"], placeId: "ChIJm97LewAnHw0RBMbd1PKtJsM" },
   // — Missing from Centro —
   { id: 87, name: "Com Pinta", type: "Burger & Pizza", zone: "Centro", lat: 38.9621767, lng: -9.4165678, facing: 200, elevated: false, rating: 4.4, cat: "food", tags: ["food"], placeId: "ChIJjy3oZwsnHw0RoKwSou61Em0" },
 ];
@@ -312,6 +313,41 @@ const FALLBACK_BUILDINGS = [
   coordsM: b.coords.map((c) => toMeters(c.lat, c.lng)),
 }));
 
+
+// TheFork affiliate config
+const THEFORK_AFFILIATE_ID = ""; // Set your affiliate tracking ID here once approved
+const THEFORK_SLUGS = {
+  "Pedra Dura": "pedra-dura-restaurante-r844562",
+  "Kojima": "kojima-sushi-bar-ericeira-r805707",
+  "Hayaci": "restaurante-japones-hayaci-ericeira-r840831",
+  "Se7e Praias": "se7e-praias-r74443",
+  "Onda": "onda-by-aethos-ericeira-r811174",
+  "Jangada": "restaurante-jangada-you-the-sea-ericeira-r887399",
+  "Mizu": "mizu-ericeira-r828619",
+  "Red Chilli": "red-chilli-r853421",
+  "Sete Sóis": "sete-sois-r827067",
+  "Beach Pizzas": "beach-pizzas-ericeira-r883207",
+  "Ribas Marisqueira": "ribas-marisqueira-r817625",
+  "Lizandro Surf": "lizandro-surf-restaurant-bar-r800113",
+  "Amadís": "amadis-gastro-drinks-r866993",
+  "Dona Azeitona": "dona-azeitona-r877423",
+  "Do Mar À Mesa": "do-mar-a-mesa-r892717",
+  "Na Mouche": "na-mouche-r882927",
+};
+function getTheForkLink(venue) {
+  // Check if venue name matches a known slug
+  for (const [key, slug] of Object.entries(THEFORK_SLUGS)) {
+    if (venue.name.includes(key)) {
+      const base = `https://www.thefork.pt/restaurante/${slug}`;
+      return THEFORK_AFFILIATE_ID ? `${base}?cc=${THEFORK_AFFILIATE_ID}` : base;
+    }
+  }
+  // Fallback: search TheFork for the restaurant name in Ericeira
+  const q = encodeURIComponent(venue.name + " Ericeira");
+  const base = `https://www.thefork.pt/pesquisa?queryPlace=Ericeira&q=${q}`;
+  return THEFORK_AFFILIATE_ID ? `${base}&cc=${THEFORK_AFFILIATE_ID}` : base;
+}
+
 // ============================================================
 // SCORE CALCULATION WITH SHADOWS
 // ============================================================
@@ -470,13 +506,16 @@ function MapView({ venues, scores, selectedId, onSelect, buildings, sun }) {
       const statusText = score > 0.55 ? `☀️ Full Sun ${Math.round(score * 100)}%` : score > 0.2 ? `🌤 Partial ${Math.round(score * 100)}%` : "🌑 Shade";
       const shadowNote = shadowPenalty > 0.3 ? `<div style="font-size:10px;color:#c44;margin-bottom:6px;">🏢 Building shadow detected (${Math.round(shadowPenalty * 100)}% blocked)</div>` : shadowPenalty > 0 ? `<div style="font-size:10px;color:#886;margin-bottom:6px;">🏢 Light shadow (${Math.round(shadowPenalty * 100)}% blocked)</div>` : "";
 
+      const bookBtn = (v.cat === "food" || v.cat === "bar") ? `<a href="${getTheForkLink(v)}" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:11px;font-weight:600;color:#fff;background:#e8a840;text-decoration:none;padding:7px 12px;border-radius:8px;margin-bottom:4px;">🍴 Book a Table</a>` : "";
+
       marker.bindPopup(
         `<div style="font-family:-apple-system,system-ui,sans-serif;min-width:160px;padding:4px 0;">
           <div style="font-size:15px;font-weight:600;color:#1a1a2e;margin-bottom:1px;">${v.name}</div>
           <div style="font-size:10px;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">${v.type} · ${v.zone}</div>
           <div style="font-size:13px;font-weight:500;margin-bottom:6px;color:${color};">${statusText}</div>
           ${shadowNote}
-          <a href="${getMapsLink(v)}" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:12px;font-weight:600;color:#fff;background:#e8a840;text-decoration:none;padding:8px 12px;border-radius:8px;">Open in Google Maps</a>
+          ${bookBtn}
+          <a href="${getMapsLink(v)}" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:11px;font-weight:500;color:#666;background:#f0f0f0;text-decoration:none;padding:7px 12px;border-radius:8px;">📍 Directions</a>
         </div>`,
         { className: "custom-popup", maxWidth: 220 }
       );
@@ -561,8 +600,19 @@ function computeDayTimeline(venue, buildings, date, weatherData) {
   return { points, peakScore, peakTime, sunriseM: Math.floor(sunriseH * 60), sunsetM: Math.ceil(sunsetH * 60) };
 }
 
-function SunTimeline({ venue, buildings, currentMinutes, onTimeClick, weather }) {
-  const timeline = useMemo(() => computeDayTimeline(venue, buildings, new Date(), weather), [venue, buildings, weather]);
+function SunTimeline({ venue, buildings, currentMinutes, onTimeClick, weather, currentDate }) {
+  // Compute which day offset this date represents (0 = today, 1440 = tomorrow)
+  const dayBase = useMemo(() => {
+    const d = currentDate || new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }, [currentDate]);
+  const dayOffsetBase = useMemo(() => {
+    const today = new Date();
+    const todayMid = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return Math.round((dayBase - todayMid) / 60000); // 0 for today, 1440 for tomorrow
+  }, [dayBase]);
+
+  const timeline = useMemo(() => computeDayTimeline(venue, buildings, dayBase, weather), [venue, buildings, dayBase, weather]);
   const { points, peakScore, peakTime, sunriseM, sunsetM } = timeline;
   
   if (points.length === 0) return null;
@@ -575,24 +625,33 @@ function SunTimeline({ venue, buildings, currentMinutes, onTimeClick, weather })
   const pathD = points.map((p, i) => `${i === 0 ? "M" : "L"}${xScale(p.m).toFixed(1)},${yScale(p.score).toFixed(1)}`).join(" ");
   const areaD = pathD + ` L${xScale(points[points.length - 1].m).toFixed(1)},${h - pad} L${xScale(points[0].m).toFixed(1)},${h - pad} Z`;
   
-  const cursorX = xScale(Math.max(sunriseM, Math.min(sunsetM, currentMinutes)));
-  const currentScore = points.reduce((best, p) => Math.abs(p.m - currentMinutes) < Math.abs(best.m - currentMinutes) ? p : best, points[0]);
+  // Convert absolute offset to day-local minutes for cursor
+  const localMinutes = currentMinutes - dayOffsetBase;
+  const cursorX = xScale(Math.max(sunriseM, Math.min(sunsetM, localMinutes)));
+  const currentScore = points.reduce((best, p) => Math.abs(p.m - localMinutes) < Math.abs(best.m - localMinutes) ? p : best, points[0]);
   const peakX = xScale(peakTime);
   
   const handleClick = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const pct = x / rect.width;
-    const m = Math.round(sunriseM + pct * range);
-    onTimeClick(Math.max(sunriseM, Math.min(sunsetM, m)));
+    const localM = Math.round(sunriseM + pct * range);
+    // Convert back to absolute offset
+    onTimeClick(dayOffsetBase + Math.max(sunriseM, Math.min(sunsetM, localM)));
+  };
+
+  // Peak click also needs to emit absolute offset
+  const handlePeakClick = (e) => {
+    e.stopPropagation();
+    onTimeClick(dayOffsetBase + peakTime);
   };
 
   return (
     <div className="mb-3" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[9px] uppercase tracking-wider text-stone-500">Sun timeline — tap to jump</span>
+        <span className="text-[9px] uppercase tracking-wider text-stone-500"></span>
         {peakScore > 0.3 && (
-          <button onClick={(e) => { e.stopPropagation(); onTimeClick(peakTime); }} className="text-[9px] uppercase tracking-wider text-amber-400/70 hover:text-amber-400 transition-colors">
+          <button onClick={handlePeakClick} className="text-[9px] uppercase tracking-wider text-amber-400/70 hover:text-amber-400 transition-colors">
             Peak: {formatTime(peakTime / 60)} ({Math.round(peakScore * 100)}%)
           </button>
         )}
@@ -624,7 +683,7 @@ function SunTimeline({ venue, buildings, currentMinutes, onTimeClick, weather })
   );
 }
 
-function VenueCard({ venue, scoreData, isSelected, onClick, buildings, currentMinutes, onTimeClick, weather }) {
+function VenueCard({ venue, scoreData, isSelected, onClick, buildings, currentMinutes, onTimeClick, weather, currentDate }) {
   const { score, shadowPenalty, baseScore } = scoreData;
   const pct = Math.round(score * 100);
   const col = score > 0.55 ? "#e8a840" : score > 0.2 ? "#8b6a2f" : "rgba(240,232,216,0.25)";
@@ -647,15 +706,22 @@ function VenueCard({ venue, scoreData, isSelected, onClick, buildings, currentMi
       {isSelected && (
         <div className="mt-2.5 ml-4">
           {/* Sun Timeline */}
-          <SunTimeline venue={venue} buildings={buildings} currentMinutes={currentMinutes} onTimeClick={onTimeClick} weather={weather} />
+          <SunTimeline venue={venue} buildings={buildings} currentMinutes={currentMinutes} onTimeClick={onTimeClick} weather={weather} currentDate={currentDate} />
           {/* Shadow note — only if significant */}
           {shadowPenalty > 0.3 && (
             <p className="text-[9px] text-stone-600 mb-2">🏢 {Math.round(shadowPenalty * 100)}% building shadow{venue.elevated ? " (reduced — rooftop)" : ""}</p>
           )}
-          {/* Single CTA — Google Maps */}
-          <a href={getMapsLink(venue)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center justify-center gap-1.5 w-full text-xs font-medium px-3 py-2 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/25 hover:bg-amber-500/25 transition-colors">
-            Open in Google Maps
-          </a>
+          {/* CTAs */}
+          <div className="flex gap-2">
+            {venue.cat === "food" || venue.cat === "bar" ? (
+              <a href={getTheForkLink(venue)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 transition-colors">
+                🍴 Book a Table
+              </a>
+            ) : null}
+            <a href={getMapsLink(venue)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className={`${venue.cat === "food" || venue.cat === "bar" ? "flex-1" : "w-full"} flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-white/[0.05] text-stone-400 border border-white/[0.08] hover:bg-white/[0.1] transition-colors`}>
+              📍 Directions
+            </a>
+          </div>
         </div>
       )}
     </button>
@@ -881,7 +947,7 @@ export default function App() {
             {sortedVenues.length === 0 ? (
               <div className="text-center py-12 text-stone-600"><p className="text-xs">No venues match this filter</p></div>
             ) : sortedVenues.map((v) => (
-              <VenueCard key={v.id} venue={v} scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }} isSelected={selectedId === v.id} onClick={() => setSelectedId(selectedId === v.id ? null : v.id)} buildings={buildings} currentMinutes={timeOffset} onTimeClick={setTimeOffset} weather={weather} />
+              <VenueCard key={v.id} venue={v} scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }} isSelected={selectedId === v.id} onClick={() => setSelectedId(selectedId === v.id ? null : v.id)} buildings={buildings} currentMinutes={timeOffset} onTimeClick={setTimeOffset} weather={weather} currentDate={currentDate} />
             ))}
           </div>
         </div>
@@ -944,7 +1010,7 @@ export default function App() {
             {sortedVenues.length === 0 ? (
               <div className="text-center py-8 text-stone-600"><p className="text-xs">No venues match this filter</p></div>
             ) : sortedVenues.map((v) => (
-              <VenueCard key={v.id} venue={v} scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }} isSelected={selectedId === v.id} onClick={() => setSelectedId(selectedId === v.id ? null : v.id)} buildings={buildings} currentMinutes={timeOffset} onTimeClick={setTimeOffset} weather={weather} />
+              <VenueCard key={v.id} venue={v} scoreData={scores[v.id] || { score: 0, shadowPenalty: 0, baseScore: 0 }} isSelected={selectedId === v.id} onClick={() => setSelectedId(selectedId === v.id ? null : v.id)} buildings={buildings} currentMinutes={timeOffset} onTimeClick={setTimeOffset} weather={weather} currentDate={currentDate} />
             ))}
           </div>
         </div>
